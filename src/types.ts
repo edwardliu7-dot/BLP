@@ -22,8 +22,11 @@ export interface DailyRecord {
   score?: number | null; // Teacher's score 0-100
 }
 
+export const KELAS_OPTIONS = ['VII Ibnu Batutah', 'VIII Ibnu Sina', 'IX Al Khawarizmi'] as const;
+
 export interface UserProgress {
   id: string;
+  username: string;
   name: string;
   kelas: string;
   email: string;
@@ -34,6 +37,7 @@ export interface UserProgress {
 
 export interface GuruProfile {
   id: string;
+  username: string;
   name: string;
   kelasDiampu: string[];
   password?: string;

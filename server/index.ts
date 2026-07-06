@@ -5,13 +5,13 @@ import type { UserProgress, GuruProfile, DailyRecord, SystemData } from '../src/
 const app = express();
 app.use(express.json());
 
-function toId(name: string) {
-  return name.trim().toLowerCase().replace(/\s+/g, '-');
+function toId(username: string) {
+  return username.trim().toLowerCase().replace(/\s+/g, '-');
 }
 
 async function loadStudent(id: string): Promise<UserProgress | null> {
   const studentRes = await pool.query(
-    'SELECT id, name, kelas, email, whatsapp, password FROM students WHERE id = $1',
+    'SELECT id, username, name, kelas, email, whatsapp, password FROM students WHERE id = $1',
     [id]
   );
   if (studentRes.rowCount === 0) return null;
@@ -33,6 +33,7 @@ async function loadStudent(id: string): Promise<UserProgress | null> {
 
   return {
     id: row.id,
+    username: row.username,
     name: row.name,
     kelas: row.kelas,
     email: row.email,
@@ -44,13 +45,14 @@ async function loadStudent(id: string): Promise<UserProgress | null> {
 
 async function loadGuru(id: string): Promise<GuruProfile | null> {
   const res = await pool.query(
-    'SELECT id, name, kelas_diampu, password FROM gurus WHERE id = $1',
+    'SELECT id, username, name, kelas_diampu, password FROM gurus WHERE id = $1',
     [id]
   );
   if (res.rowCount === 0) return null;
   const row = res.rows[0];
   return {
     id: row.id,
+    username: row.username,
     name: row.name,
     kelasDiampu: row.kelas_diampu || [],
     password: row.password,
@@ -85,21 +87,21 @@ app.get('/api/system-data', async (_req, res) => {
 // Register siswa
 app.post('/api/students', async (req, res) => {
   try {
-    const { name, kelas, email, whatsapp, password } = req.body || {};
-    if (!name || !String(name).trim() || !password || !String(password).trim()) {
-      return res.status(400).json({ error: 'Nama dan Password wajib diisi' });
+    const { username, name, kelas, email, whatsapp, password } = req.body || {};
+    if (!username || !String(username).trim() || !name || !String(name).trim() || !password || !String(password).trim()) {
+      return res.status(400).json({ error: 'Username, Nama, dan Password wajib diisi' });
     }
     if (!kelas || !email || !whatsapp) {
       return res.status(400).json({ error: 'Semua field wajib diisi untuk siswa' });
     }
-    const id = toId(name);
+    const id = toId(username);
     const existing = await pool.query('SELECT id FROM students WHERE id = $1', [id]);
     if ((existing.rowCount ?? 0) > 0) {
-      return res.status(409).json({ error: 'Siswa dengan nama ini sudah terdaftar. Silakan login.' });
+      return res.status(409).json({ error: 'Username ini sudah terdaftar. Silakan login atau gunakan username lain.' });
     }
     await pool.query(
-      'INSERT INTO students (id, name, kelas, email, whatsapp, password) VALUES ($1, $2, $3, $4, $5, $6)',
-      [id, name, kelas, email, whatsapp, password]
+      'INSERT INTO students (id, username, name, kelas, email, whatsapp, password) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      [id, username, name, kelas, email, whatsapp, password]
     );
     const student = await loadStudent(id);
     res.status(201).json(student);
@@ -112,21 +114,21 @@ app.post('/api/students', async (req, res) => {
 // Register guru
 app.post('/api/gurus', async (req, res) => {
   try {
-    const { name, kelasDiampu, password } = req.body || {};
-    if (!name || !String(name).trim() || !password || !String(password).trim()) {
-      return res.status(400).json({ error: 'Nama dan Password wajib diisi' });
+    const { username, name, kelasDiampu, password } = req.body || {};
+    if (!username || !String(username).trim() || !name || !String(name).trim() || !password || !String(password).trim()) {
+      return res.status(400).json({ error: 'Username, Nama, dan Password wajib diisi' });
     }
     if (!Array.isArray(kelasDiampu) || kelasDiampu.length === 0) {
       return res.status(400).json({ error: 'Kelas yang diampu wajib diisi' });
     }
-    const id = toId(name);
+    const id = toId(username);
     const existing = await pool.query('SELECT id FROM gurus WHERE id = $1', [id]);
     if ((existing.rowCount ?? 0) > 0) {
-      return res.status(409).json({ error: 'Guru dengan nama ini sudah terdaftar. Silakan login.' });
+      return res.status(409).json({ error: 'Username ini sudah terdaftar. Silakan login atau gunakan username lain.' });
     }
     await pool.query(
-      'INSERT INTO gurus (id, name, kelas_diampu, password) VALUES ($1, $2, $3, $4)',
-      [id, name, kelasDiampu, password]
+      'INSERT INTO gurus (id, username, name, kelas_diampu, password) VALUES ($1, $2, $3, $4, $5)',
+      [id, username, name, kelasDiampu, password]
     );
     const guru = await loadGuru(id);
     res.status(201).json(guru);
@@ -139,11 +141,11 @@ app.post('/api/gurus', async (req, res) => {
 // Login siswa
 app.post('/api/login/siswa', async (req, res) => {
   try {
-    const { name, password } = req.body || {};
-    const id = toId(String(name || ''));
+    const { username, password } = req.body || {};
+    const id = toId(String(username || ''));
     const student = await loadStudent(id);
     if (!student) {
-      return res.status(404).json({ error: 'Nama Anda belum terdaftar. Silakan pindah ke tab "Daftar Baru".' });
+      return res.status(404).json({ error: 'Username Anda belum terdaftar. Silakan pindah ke tab "Daftar Baru".' });
     }
     if (student.password && student.password !== password) {
       return res.status(401).json({ error: 'Password salah!' });
@@ -158,11 +160,11 @@ app.post('/api/login/siswa', async (req, res) => {
 // Login guru
 app.post('/api/login/guru', async (req, res) => {
   try {
-    const { name, password } = req.body || {};
-    const id = toId(String(name || ''));
+    const { username, password } = req.body || {};
+    const id = toId(String(username || ''));
     const guru = await loadGuru(id);
     if (!guru) {
-      return res.status(404).json({ error: 'Nama Anda belum terdaftar. Silakan pindah ke tab "Daftar Baru".' });
+      return res.status(404).json({ error: 'Username Anda belum terdaftar. Silakan pindah ke tab "Daftar Baru".' });
     }
     if (guru.password && guru.password !== password) {
       return res.status(401).json({ error: 'Password salah!' });
