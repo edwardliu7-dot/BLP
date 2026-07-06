@@ -1,0 +1,6 @@
+{
+  "name": "Aplikasi BLP Harian",
+  "description": "Aplikasi pencatat aktivitas harian Building Learning Power (BLP) untuk siswa SMP TISA Islamic School.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
