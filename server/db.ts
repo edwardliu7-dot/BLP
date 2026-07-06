@@ -1,12 +1,14 @@
 import { Pool } from 'pg';
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is required');
+const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error('NEON_DATABASE_URL (or DATABASE_URL) environment variable is required');
 }
 
-const isNeon = process.env.DATABASE_URL.includes('neon.tech');
+const isNeon = connectionString.includes('neon.tech');
 
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
   ssl: isNeon ? { rejectUnauthorized: false } : undefined,
 });
