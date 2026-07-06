@@ -1,16 +1,15 @@
 import { useState, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GraduationCap, User, Lock, ArrowRight, Mail, Phone, BookOpen, KeyRound } from 'lucide-react';
-import { AuthState, SystemData, UserProgress, GuruProfile } from '../types';
+import { AuthState, UserProgress, GuruProfile } from '../types';
 
 interface LoginProps {
-  systemData: SystemData;
   onLogin: (auth: AuthState) => void;
   onRegisterSiswa: (data: UserProgress) => void;
   onRegisterGuru: (data: GuruProfile) => void;
 }
 
-export default function Login({ systemData, onLogin, onRegisterSiswa, onRegisterGuru }: LoginProps) {
+export default function Login({ onLogin, onRegisterSiswa, onRegisterGuru }: LoginProps) {
   const [role, setRole] = useState<'siswa' | 'guru'>('siswa');
   const [mode, setMode] = useState<'login' | 'register'>('login');
   
@@ -20,6 +19,7 @@ export default function Login({ systemData, onLogin, onRegisterSiswa, onRegister
   const [whatsapp, setWhatsapp] = useState('');
   const [kelas, setKelas] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resetForm = () => {
     setName('');
@@ -35,7 +35,16 @@ export default function Login({ systemData, onLogin, onRegisterSiswa, onRegister
     resetForm();
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const parseErrorMessage = async (res: Response, fallback: string) => {
+    try {
+      const body = await res.json();
+      return body?.error || fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -45,70 +54,81 @@ export default function Login({ systemData, onLogin, onRegisterSiswa, onRegister
         return;
       }
 
-      const id = name.toLowerCase().replace(/\s+/g, '-');
-
-      if (role === 'siswa') {
-        if (!kelas.trim() || !email.trim() || !whatsapp.trim()) {
-          setErrorMsg('Semua field wajib diisi untuk siswa');
-          return;
+      setIsSubmitting(true);
+      try {
+        if (role === 'siswa') {
+          if (!kelas.trim() || !email.trim() || !whatsapp.trim()) {
+            setErrorMsg('Semua field wajib diisi untuk siswa');
+            return;
+          }
+          const res = await fetch('/api/students', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, kelas, email, whatsapp, password }),
+          });
+          if (!res.ok) {
+            setErrorMsg(await parseErrorMessage(res, 'Gagal mendaftarkan siswa'));
+            return;
+          }
+          const student = await res.json();
+          onRegisterSiswa(student);
+        } else {
+          if (!kelas.trim()) {
+            setErrorMsg('Kelas yang diampu wajib diisi');
+            return;
+          }
+          // Split comma separated classes
+          const classes = kelas.split(',').map(c => c.trim()).filter(Boolean);
+          const res = await fetch('/api/gurus', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, kelasDiampu: classes, password }),
+          });
+          if (!res.ok) {
+            setErrorMsg(await parseErrorMessage(res, 'Gagal mendaftarkan guru'));
+            return;
+          }
+          const guru = await res.json();
+          onRegisterGuru(guru);
         }
-        if (systemData.students[id]) {
-          setErrorMsg('Siswa dengan nama ini sudah terdaftar. Silakan login.');
-          return;
-        }
-        onRegisterSiswa({
-          id,
-          name,
-          kelas,
-          email,
-          whatsapp,
-          password,
-          records: {}
-        });
-      } else {
-        if (!kelas.trim()) {
-          setErrorMsg('Kelas yang diampu wajib diisi');
-          return;
-        }
-        if (systemData.gurus[id]) {
-          setErrorMsg('Guru dengan nama ini sudah terdaftar. Silakan login.');
-          return;
-        }
-        // Split comma separated classes
-        const classes = kelas.split(',').map(c => c.trim()).filter(Boolean);
-        onRegisterGuru({
-          id,
-          name,
-          kelasDiampu: classes,
-          password
-        });
+      } catch (err) {
+        setErrorMsg('Gagal terhubung ke server. Silakan coba lagi.');
+      } finally {
+        setIsSubmitting(false);
       }
     } else {
       // Login flow
-      const id = name.toLowerCase().replace(/\s+/g, '-');
-      
-      if (role === 'siswa') {
-        const student = systemData.students[id];
-        if (!student) {
-          setErrorMsg('Nama Anda belum terdaftar. Silakan pindah ke tab "Daftar Baru".');
-          return;
+      setIsSubmitting(true);
+      try {
+        if (role === 'siswa') {
+          const res = await fetch('/api/login/siswa', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, password }),
+          });
+          if (!res.ok) {
+            setErrorMsg(await parseErrorMessage(res, 'Gagal login'));
+            return;
+          }
+          const student = await res.json();
+          onLogin({ role: 'siswa', userId: student.id, name: student.name, kelas: student.kelas });
+        } else {
+          const res = await fetch('/api/login/guru', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, password }),
+          });
+          if (!res.ok) {
+            setErrorMsg(await parseErrorMessage(res, 'Gagal login'));
+            return;
+          }
+          const guru = await res.json();
+          onLogin({ role: 'guru', userId: guru.id, name: guru.name, kelasDiampu: guru.kelasDiampu });
         }
-        if (student.password && student.password !== password) {
-          setErrorMsg('Password salah!');
-          return;
-        }
-        onLogin({ role: 'siswa', userId: student.id, name: student.name, kelas: student.kelas });
-      } else {
-        const guru = systemData.gurus[id];
-        if (!guru) {
-          setErrorMsg('Nama Anda belum terdaftar. Silakan pindah ke tab "Daftar Baru".');
-          return;
-        }
-        if (guru.password && guru.password !== password) {
-          setErrorMsg('Password salah!');
-          return;
-        }
-        onLogin({ role: 'guru', userId: guru.id, name: guru.name, kelasDiampu: guru.kelasDiampu });
+      } catch (err) {
+        setErrorMsg('Gagal terhubung ke server. Silakan coba lagi.');
+      } finally {
+        setIsSubmitting(false);
       }
     }
   };
@@ -270,9 +290,10 @@ export default function Login({ systemData, onLogin, onRegisterSiswa, onRegister
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white p-3 rounded-xl font-bold transition-all mt-6"
+              disabled={isSubmitting}
+              className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-not-allowed text-white p-3 rounded-xl font-bold transition-all mt-6"
             >
-              {mode === 'login' ? 'Masuk' : 'Daftar'} <ArrowRight size={18} />
+              {isSubmitting ? 'Memproses...' : (mode === 'login' ? 'Masuk' : 'Daftar')} <ArrowRight size={18} />
             </button>
           </form>
         </div>

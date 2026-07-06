@@ -1,17 +1,12 @@
-import { useState, useEffect } from 'react';
-import { AuthState, SystemData, DailyRecord } from './types';
+import { useState, useEffect, useCallback } from 'react';
+import { AuthState, SystemData, DailyRecord, UserProgress, GuruProfile } from './types';
 import Login from './components/Login';
 import SiswaDashboard from './components/SiswaDashboard';
 import GuruDashboard from './components/GuruDashboard';
-import { format } from 'date-fns';
 
-const STORAGE_KEY = 'blp_system_data';
 const THEME_KEY = 'blp_theme';
 const REMINDERS_KEY = 'blp_reminders';
 const AUTH_KEY = 'blp_auth_state';
-
-// Try to migrate old data if exists
-const OLD_STORAGE_KEY = 'blp_tracker_data';
 
 export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -19,79 +14,47 @@ export default function App() {
   const [auth, setAuth] = useState<AuthState>({ role: null });
   const [darkMode, setDarkMode] = useState(false);
   const [remindersEnabled, setRemindersEnabled] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // 1. Load System Data
-    let data: SystemData = { students: {}, gurus: {} };
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        data = {
-          students: parsed.students || {},
-          gurus: parsed.gurus || {}
-        };
-      } catch (e) {
-        console.error('Failed to parse system data', e);
-      }
-    } else {
-      // Migrate old data
-      const oldData = localStorage.getItem(OLD_STORAGE_KEY);
-      if (oldData) {
-        try {
-          const parsed = JSON.parse(oldData);
-          if (parsed.name) {
-            const userId = parsed.name.toLowerCase().replace(/\s+/g, '-');
-            data = {
-              students: {
-                [userId]: {
-                  id: userId,
-                  name: parsed.name,
-                  kelas: '7A', // Default class for migrated data
-                  email: '',
-                  whatsapp: '',
-                  records: parsed.records || {}
-                }
-              },
-              gurus: {}
-            };
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-          }
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    }
+  const fetchSystemData = useCallback(async () => {
+    const res = await fetch('/api/system-data');
+    if (!res.ok) throw new Error('Gagal memuat data dari server');
+    const data: SystemData = await res.json();
     setSystemData(data);
-
-    // 2. Load Auth State
-    const storedAuth = localStorage.getItem(AUTH_KEY);
-    if (storedAuth) {
-      try {
-        setAuth(JSON.parse(storedAuth));
-      } catch (e) {}
-    }
-
-    // 3. Load Preferences
-    const storedTheme = localStorage.getItem(THEME_KEY);
-    if (storedTheme === 'dark' || (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      setDarkMode(true);
-    }
-
-    const storedReminders = localStorage.getItem(REMINDERS_KEY);
-    if (storedReminders === 'true' && 'Notification' in window && Notification.permission === 'granted') {
-      setRemindersEnabled(true);
-    }
-
-    setIsInitialized(true);
   }, []);
 
-  // Save System Data when it changes
   useEffect(() => {
-    if (isInitialized) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(systemData));
-    }
-  }, [systemData, isInitialized]);
+    (async () => {
+      // 1. Load System Data from database
+      try {
+        await fetchSystemData();
+      } catch (e) {
+        console.error('Failed to load system data', e);
+        setLoadError('Gagal terhubung ke server. Silakan muat ulang halaman.');
+      }
+
+      // 2. Load Auth State (session only, not source of truth)
+      const storedAuth = localStorage.getItem(AUTH_KEY);
+      if (storedAuth) {
+        try {
+          setAuth(JSON.parse(storedAuth));
+        } catch (e) {}
+      }
+
+      // 3. Load Preferences
+      const storedTheme = localStorage.getItem(THEME_KEY);
+      if (storedTheme === 'dark' || (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        setDarkMode(true);
+      }
+
+      const storedReminders = localStorage.getItem(REMINDERS_KEY);
+      if (storedReminders === 'true' && 'Notification' in window && Notification.permission === 'granted') {
+        setRemindersEnabled(true);
+      }
+
+      setIsInitialized(true);
+    })();
+  }, [fetchSystemData]);
 
   // Handle Theme
   useEffect(() => {
@@ -111,7 +74,7 @@ export default function App() {
     localStorage.setItem(AUTH_KEY, JSON.stringify(newAuth));
   };
 
-  const handleRegisterSiswa = (data: import('./types').UserProgress) => {
+  const handleRegisterSiswa = (data: UserProgress) => {
     setSystemData(prev => ({
       ...prev,
       students: { ...prev.students, [data.id]: data }
@@ -119,7 +82,7 @@ export default function App() {
     handleLogin({ role: 'siswa', userId: data.id, name: data.name, kelas: data.kelas });
   };
 
-  const handleRegisterGuru = (data: import('./types').GuruProfile) => {
+  const handleRegisterGuru = (data: GuruProfile) => {
     setSystemData(prev => ({
       ...prev,
       gurus: { ...prev.gurus, [data.id]: data }
@@ -155,17 +118,20 @@ export default function App() {
   };
 
   // Siswa functions
-  const handleUpdateRecord = (dateKey: string, updatedRecord: DailyRecord) => {
+  const handleUpdateRecord = async (dateKey: string, updatedRecord: DailyRecord) => {
     if (auth.role === 'siswa' && auth.userId) {
+      const userId = auth.userId;
+
+      // Optimistic update
       setSystemData(prev => {
-        const student = prev.students[auth.userId!];
+        const student = prev.students[userId];
         if (!student) return prev;
-        
+
         return {
           ...prev,
           students: {
             ...prev.students,
-            [auth.userId!]: {
+            [userId]: {
               ...student,
               records: {
                 ...student.records,
@@ -175,14 +141,36 @@ export default function App() {
           }
         };
       });
+
+      try {
+        const res = await fetch(`/api/students/${encodeURIComponent(userId)}/records/${encodeURIComponent(dateKey)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            completedActivities: updatedRecord.completedActivities,
+            score: updatedRecord.score ?? null,
+          }),
+        });
+        if (!res.ok) throw new Error('Gagal menyimpan data BLP');
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 
   if (!isInitialized) return null;
 
+  if (loadError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
+        <div className="text-center text-red-600 dark:text-red-400 font-medium">{loadError}</div>
+      </div>
+    );
+  }
+
   if (auth.role === 'siswa' && auth.userId) {
     const user = systemData.students[auth.userId];
-    if (!user) return <Login systemData={systemData} onLogin={handleLogin} onRegisterSiswa={handleRegisterSiswa} onRegisterGuru={handleRegisterGuru} />; // Edge case fallback
+    if (!user) return <Login onLogin={handleLogin} onRegisterSiswa={handleRegisterSiswa} onRegisterGuru={handleRegisterGuru} />; // Edge case fallback
     return (
       <SiswaDashboard 
         user={user}
@@ -206,5 +194,5 @@ export default function App() {
     );
   }
 
-  return <Login systemData={systemData} onLogin={handleLogin} onRegisterSiswa={handleRegisterSiswa} onRegisterGuru={handleRegisterGuru} />;
+  return <Login onLogin={handleLogin} onRegisterSiswa={handleRegisterSiswa} onRegisterGuru={handleRegisterGuru} />;
 }
