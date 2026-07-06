@@ -206,7 +206,9 @@ async function startServer() {
 
   if (process.env.NODE_ENV === 'production') {
     const path = await import('path');
-    const buildPath = path.resolve(__dirname, '../dist');
+    const { fileURLToPath } = await import('url');
+    const currentDir = path.dirname(fileURLToPath(import.meta.url));
+    const buildPath = path.resolve(currentDir, '../dist');
     app.use(express.static(buildPath));
     app.get('*', (_req, res) => {
       res.sendFile(path.join(buildPath, 'index.html'));
