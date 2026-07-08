@@ -20,6 +20,8 @@ import { twMerge } from 'tailwind-merge';
 
 import { BLP_CATEGORIES } from '../data/activities';
 import { SystemData, DailyRecord, AuthState } from '../types';
+import { downloadRekapPDF, downloadRekapExcel } from '../utils/rekapExport';
+import { FileDown } from 'lucide-react';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -216,6 +218,7 @@ export default function GuruDashboard({ systemData, auth, onLogout }: GuruDashbo
                   <th className="p-3 border-b border-slate-200 font-semibold sticky left-0 bg-slate-100 z-10">Nama Siswa</th>
                   <th className="p-3 border-b border-slate-200 font-semibold text-center">Rata-Rata Bulan Ini</th>
                   <th className="p-3 border-b border-slate-200 font-semibold text-center">Hari Dinilai</th>
+                  <th className="p-3 border-b border-slate-200 font-semibold text-center">Rekap</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -239,6 +242,24 @@ export default function GuruDashboard({ systemData, auth, onLogout }: GuruDashbo
                       <td className="p-3 font-medium text-slate-800 sticky left-0 bg-white group-hover:bg-slate-50 z-10">{s.name}</td>
                       <td className="p-3 text-center font-bold text-emerald-600">{avg}</td>
                       <td className="p-3 text-center text-sm text-slate-500">{scoredDaysCount} hari</td>
+                      <td className="p-3 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => downloadRekapPDF(s, selectedDate)}
+                            title="Unduh PDF"
+                            className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                          >
+                            <FileDown size={14} />
+                          </button>
+                          <button
+                            onClick={() => downloadRekapExcel(s, selectedDate)}
+                            title="Unduh Excel"
+                            className="p-1.5 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors"
+                          >
+                            <FileDown size={14} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   )
                 })}

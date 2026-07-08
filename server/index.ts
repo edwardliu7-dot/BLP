@@ -18,7 +18,7 @@ async function loadStudent(id: string): Promise<UserProgress | null> {
   const row = studentRes.rows[0];
 
   const recordsRes = await pool.query(
-    'SELECT record_date, completed_activities, score FROM daily_records WHERE student_id = $1',
+    'SELECT record_date, completed_activities, score, submissions FROM daily_records WHERE student_id = $1',
     [id]
   );
   const records: Record<string, DailyRecord> = {};
@@ -28,6 +28,7 @@ async function loadStudent(id: string): Promise<UserProgress | null> {
       date: dateKey,
       completedActivities: r.completed_activities || [],
       score: r.score,
+      submissions: r.submissions || {},
     };
   }
 
@@ -180,22 +181,24 @@ app.post('/api/login/guru', async (req, res) => {
 app.put('/api/students/:id/records/:date', async (req, res) => {
   try {
     const { id, date } = req.params;
-    const { completedActivities, score } = req.body || {};
+    const { completedActivities, score, submissions } = req.body || {};
     const student = await pool.query('SELECT id FROM students WHERE id = $1', [id]);
     if (student.rowCount === 0) {
       return res.status(404).json({ error: 'Siswa tidak ditemukan' });
     }
+    const submissionsJson = JSON.stringify(submissions && typeof submissions === 'object' ? submissions : {});
     await pool.query(
-      `INSERT INTO daily_records (student_id, record_date, completed_activities, score)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO daily_records (student_id, record_date, completed_activities, score, submissions)
+       VALUES ($1, $2, $3, $4, $5::jsonb)
        ON CONFLICT (student_id, record_date)
-       DO UPDATE SET completed_activities = EXCLUDED.completed_activities, score = EXCLUDED.score, updated_at = now()`,
-      [id, date, Array.isArray(completedActivities) ? completedActivities : [], score ?? null]
+       DO UPDATE SET completed_activities = EXCLUDED.completed_activities, score = EXCLUDED.score, submissions = EXCLUDED.submissions, updated_at = now()`,
+      [id, date, Array.isArray(completedActivities) ? completedActivities : [], score ?? null, submissionsJson]
     );
     res.json({
       date,
       completedActivities: Array.isArray(completedActivities) ? completedActivities : [],
       score: score ?? null,
+      submissions: submissions && typeof submissions === 'object' ? submissions : {},
     });
   } catch (err) {
     console.error('Failed to update record', err);

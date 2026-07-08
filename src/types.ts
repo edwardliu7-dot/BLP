@@ -16,10 +16,18 @@ export interface Category {
   activities: Activity[];
 }
 
+export interface ActivitySubmission {
+  type: 'text' | 'audio';
+  content?: string; // free text content, or base64 data URL for audio
+  wordCount?: number;
+  recordedAt: string; // ISO timestamp
+}
+
 export interface DailyRecord {
   date: string; // ISO format date (YYYY-MM-DD)
   completedActivities: string[]; // List of activity IDs
   score?: number | null; // Teacher's score 0-100
+  submissions?: Record<string, ActivitySubmission>; // activityId -> submission
 }
 
 export const KELAS_OPTIONS = ['VII Ibnu Batutah', 'VIII Ibnu Sina', 'IX Al Khawarizmi'] as const;

@@ -149,6 +149,7 @@ export default function App() {
           body: JSON.stringify({
             completedActivities: updatedRecord.completedActivities,
             score: updatedRecord.score ?? null,
+            submissions: updatedRecord.submissions ?? {},
           }),
         });
         if (!res.ok) throw new Error('Gagal menyimpan data BLP');

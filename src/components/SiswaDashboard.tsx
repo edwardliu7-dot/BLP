@@ -16,7 +16,10 @@ import {
   Bell,
   Moon,
   Sun,
-  LogOut
+  LogOut,
+  Mic,
+  PenLine,
+  FileDown
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, addMonths, subMonths, startOfDay } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -24,7 +27,39 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 import { BLP_CATEGORIES } from '../data/activities';
-import { DailyRecord, UserProgress } from '../types';
+import { DailyRecord, UserProgress, ActivitySubmission } from '../types';
+import TextSubmissionModal from './modals/TextSubmissionModal';
+import QuranReadingModal from './modals/QuranReadingModal';
+import { downloadRekapPDF, downloadRekapExcel } from '../utils/rekapExport';
+
+const QURAN_ACTIVITY_ID = 'd5';
+const BELAJAR_ACTIVITY_ID = 'rs1';
+const EVALUASI_ACTIVITY_ID = 'rf3';
+const RECIPROCITY_ACTIVITY_IDS = ['rp1', 'rp2', 'rp3', 'rp4'];
+
+function getSubmissionConfig(activityId: string): { minWords?: number; placeholder: string; title: string } | null {
+  if (activityId === BELAJAR_ACTIVITY_ID) {
+    return {
+      minWords: 100,
+      title: 'Rangkuman Belajar Hari Ini',
+      placeholder: 'Tuliskan rangkuman materi yang kamu pelajari hari ini...',
+    };
+  }
+  if (activityId === EVALUASI_ACTIVITY_ID) {
+    return {
+      minWords: 100,
+      title: 'Evaluasi Diri Sebelum Tidur',
+      placeholder: 'Tuliskan evaluasi dirimu hari ini: apa yang sudah baik, apa yang perlu diperbaiki, dan permintaan maaf untuk diri sendiri maupun orang lain...',
+    };
+  }
+  if (RECIPROCITY_ACTIVITY_IDS.includes(activityId)) {
+    return {
+      title: 'Laporan Kegiatan',
+      placeholder: 'Ceritakan kegiatan yang kamu lakukan sesuai poin ini...',
+    };
+  }
+  return null;
+}
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -55,15 +90,43 @@ export default function SiswaDashboard({
   const records = user.records;
   const dateKey = format(selectedDate, 'yyyy-MM-dd');
   const currentRecord = records[dateKey] || { date: dateKey, completedActivities: [] };
+  const [activeModalActivityId, setActiveModalActivityId] = useState<string | null>(null);
 
-  const toggleActivity = (activityId: string) => {
+  const applySubmissionCompletion = (activityId: string, submission: ActivitySubmission) => {
     const updatedCompleted = currentRecord.completedActivities.includes(activityId)
-      ? currentRecord.completedActivities.filter(id => id !== activityId)
+      ? currentRecord.completedActivities
       : [...currentRecord.completedActivities, activityId];
 
     onUpdateRecord(dateKey, {
       ...currentRecord,
-      completedActivities: updatedCompleted
+      completedActivities: updatedCompleted,
+      submissions: {
+        ...(currentRecord.submissions || {}),
+        [activityId]: submission,
+      },
+    });
+    setActiveModalActivityId(null);
+  };
+
+  const toggleActivity = (activityId: string) => {
+    const isDone = currentRecord.completedActivities.includes(activityId);
+
+    if (!isDone && (activityId === QURAN_ACTIVITY_ID || getSubmissionConfig(activityId))) {
+      setActiveModalActivityId(activityId);
+      return;
+    }
+
+    const updatedCompleted = isDone
+      ? currentRecord.completedActivities.filter(id => id !== activityId)
+      : [...currentRecord.completedActivities, activityId];
+
+    const updatedSubmissions = { ...(currentRecord.submissions || {}) };
+    if (isDone) delete updatedSubmissions[activityId];
+
+    onUpdateRecord(dateKey, {
+      ...currentRecord,
+      completedActivities: updatedCompleted,
+      submissions: updatedSubmissions,
     });
   };
 
@@ -298,10 +361,12 @@ export default function SiswaDashboard({
                           </div>
                           <div className="flex-1">
                             <p className={cn(
-                              "font-medium leading-snug",
+                              "font-medium leading-snug flex items-center gap-1.5",
                               isDone ? "text-emerald-900 dark:text-emerald-100" : "text-slate-700 dark:text-slate-300"
                             )}>
                               {activity.name}
+                              {activity.id === QURAN_ACTIVITY_ID && <Mic size={13} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />}
+                              {getSubmissionConfig(activity.id) && <PenLine size={13} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />}
                             </p>
                             <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-medium uppercase tracking-wider">
                               Target: {activity.target}
@@ -332,6 +397,27 @@ export default function SiswaDashboard({
                 <span className="text-emerald-200 dark:text-emerald-300 mb-1 text-sm">
                   ({monthlyStats.totalDone} / {monthlyStats.totalPossible} amaliyah)
                 </span>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4 transition-colors">
+              <h4 className="font-bold text-sm text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
+                <FileDown size={16} className="text-emerald-600 dark:text-emerald-400" />
+                Rekap Bulanan
+              </h4>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => downloadRekapPDF(user, selectedDate)}
+                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-colors"
+                >
+                  <FileDown size={14} /> PDF
+                </button>
+                <button
+                  onClick={() => downloadRekapExcel(user, selectedDate)}
+                  className="flex-1 flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-colors"
+                >
+                  <FileDown size={14} /> Excel
+                </button>
               </div>
             </div>
 
@@ -449,6 +535,39 @@ export default function SiswaDashboard({
           <span className="text-[10px] font-bold uppercase tracking-widest">Pengaturan</span>
         </button>
       </nav>
+
+      {activeModalActivityId === QURAN_ACTIVITY_ID && (
+        <QuranReadingModal
+          activityName={BLP_CATEGORIES.flatMap(c => c.activities).find(a => a.id === QURAN_ACTIVITY_ID)?.name || ''}
+          onClose={() => setActiveModalActivityId(null)}
+          onSubmit={(audioDataUrl) => {
+            applySubmissionCompletion(QURAN_ACTIVITY_ID, {
+              type: 'audio',
+              content: audioDataUrl,
+              recordedAt: new Date().toISOString(),
+            });
+          }}
+        />
+      )}
+
+      {activeModalActivityId && activeModalActivityId !== QURAN_ACTIVITY_ID && getSubmissionConfig(activeModalActivityId) && (
+        <TextSubmissionModal
+          title={getSubmissionConfig(activeModalActivityId)!.title}
+          activityName={BLP_CATEGORIES.flatMap(c => c.activities).find(a => a.id === activeModalActivityId)?.name || ''}
+          placeholder={getSubmissionConfig(activeModalActivityId)!.placeholder}
+          minWords={getSubmissionConfig(activeModalActivityId)!.minWords}
+          initialValue={currentRecord.submissions?.[activeModalActivityId]?.content || ''}
+          onClose={() => setActiveModalActivityId(null)}
+          onSubmit={(text) => {
+            applySubmissionCompletion(activeModalActivityId, {
+              type: 'text',
+              content: text,
+              wordCount: text.trim().split(/\s+/).filter(Boolean).length,
+              recordedAt: new Date().toISOString(),
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
