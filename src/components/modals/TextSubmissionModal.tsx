@@ -6,30 +6,24 @@ interface TextSubmissionModalProps {
   title: string;
   activityName: string;
   placeholder: string;
-  minWords?: number;
+  minChars?: number;
   initialValue?: string;
   onClose: () => void;
   onSubmit: (text: string) => void;
-}
-
-function countWords(text: string) {
-  const trimmed = text.trim();
-  if (!trimmed) return 0;
-  return trimmed.split(/\s+/).length;
 }
 
 export default function TextSubmissionModal({
   title,
   activityName,
   placeholder,
-  minWords,
+  minChars,
   initialValue = '',
   onClose,
   onSubmit,
 }: TextSubmissionModalProps) {
   const [text, setText] = useState(initialValue);
-  const wordCount = countWords(text);
-  const isValid = minWords ? wordCount >= minWords : text.trim().length > 0;
+  const charCount = text.trim().length;
+  const isValid = minChars ? charCount >= minChars : text.trim().length > 0;
 
   return (
     <AnimatePresence>
@@ -77,7 +71,7 @@ export default function TextSubmissionModal({
 
             <div className="flex items-center justify-end">
               <span className="text-xs font-medium text-slate-400 dark:text-slate-500">
-                {wordCount} kata
+                {minChars ? `${charCount}/${minChars} karakter` : `${charCount} karakter`}
               </span>
             </div>
 

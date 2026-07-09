@@ -38,17 +38,17 @@ const BELAJAR_ACTIVITY_ID = 'rs1';
 const EVALUASI_ACTIVITY_ID = 'rf3';
 const RECIPROCITY_ACTIVITY_IDS = ['rp1', 'rp2', 'rp3', 'rp4'];
 
-function getSubmissionConfig(activityId: string): { minWords?: number; placeholder: string; title: string } | null {
+function getSubmissionConfig(activityId: string): { minChars?: number; placeholder: string; title: string } | null {
   if (activityId === BELAJAR_ACTIVITY_ID) {
     return {
-      minWords: 100,
+      minChars: 100,
       title: 'Rangkuman Belajar Hari Ini',
       placeholder: 'Tuliskan rangkuman materi yang kamu pelajari hari ini...',
     };
   }
   if (activityId === EVALUASI_ACTIVITY_ID) {
     return {
-      minWords: 100,
+      minChars: 100,
       title: 'Evaluasi Diri Sebelum Tidur',
       placeholder: 'Tuliskan evaluasi dirimu hari ini: apa yang sudah baik, apa yang perlu diperbaiki, dan permintaan maaf untuk diri sendiri maupun orang lain...',
     };
