@@ -572,14 +572,14 @@ export default function SiswaDashboard({
           title={getSubmissionConfig(activeModalActivityId)!.title}
           activityName={BLP_CATEGORIES.flatMap(c => c.activities).find(a => a.id === activeModalActivityId)?.name || ''}
           placeholder={getSubmissionConfig(activeModalActivityId)!.placeholder}
-          minWords={getSubmissionConfig(activeModalActivityId)!.minWords}
+          minChars={getSubmissionConfig(activeModalActivityId)!.minChars}
           initialValue={currentRecord.submissions?.[activeModalActivityId]?.content || ''}
           onClose={() => setActiveModalActivityId(null)}
           onSubmit={(text) => {
             applySubmissionCompletion(activeModalActivityId, {
               type: 'text',
               content: text,
-              wordCount: text.trim().split(/\s+/).filter(Boolean).length,
+              charCount: text.trim().length,
               recordedAt: new Date().toISOString(),
             });
           }}

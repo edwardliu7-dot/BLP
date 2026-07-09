@@ -19,7 +19,7 @@ export interface Category {
 export interface ActivitySubmission {
   type: 'text' | 'audio';
   content?: string; // free text content, or base64 data URL for audio
-  wordCount?: number;
+  charCount?: number;
   recordedAt: string; // ISO timestamp
 }
 
