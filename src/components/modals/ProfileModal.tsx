@@ -1,6 +1,7 @@
 import { useRef, useState, ChangeEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Camera, User as UserIcon, Loader2, Save } from 'lucide-react';
+import PhotoCropModal from './PhotoCropModal';
 
 interface ProfileModalProps {
   name: string;
@@ -11,33 +12,12 @@ interface ProfileModalProps {
 }
 
 const MAX_BIO_LENGTH = 300;
-const TARGET_SIZE = 320;
 
-function resizeImage(file: File): Promise<string> {
+function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('Gagal membaca file'));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('Gagal memuat gambar'));
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const size = TARGET_SIZE;
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Canvas tidak didukung'));
-          return;
-        }
-        const minDim = Math.min(img.width, img.height);
-        const sx = (img.width - minDim) / 2;
-        const sy = (img.height - minDim) / 2;
-        ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
-        resolve(canvas.toDataURL('image/jpeg', 0.82));
-      };
-      img.src = reader.result as string;
-    };
+    reader.onload = () => resolve(reader.result as string);
     reader.readAsDataURL(file);
   });
 }
@@ -48,6 +28,7 @@ export default function ProfileModal({ name, currentPhotoUrl, currentBio, onClos
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rawImageSrc, setRawImageSrc] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -55,16 +36,17 @@ export default function ProfileModal({ name, currentPhotoUrl, currentBio, onClos
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       setError('File harus berupa gambar (JPG/PNG).');
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
     setError(null);
     setIsProcessingImage(true);
     try {
-      const dataUrl = await resizeImage(file);
-      setPhotoUrl(dataUrl);
+      const dataUrl = await readFileAsDataUrl(file);
+      setRawImageSrc(dataUrl);
     } catch (err) {
       console.error(err);
-      setError('Gagal memproses foto. Coba foto lain.');
+      setError('Gagal membaca foto. Coba foto lain.');
     } finally {
       setIsProcessingImage(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -185,6 +167,17 @@ export default function ProfileModal({ name, currentPhotoUrl, currentBio, onClos
           </div>
         </motion.div>
       </motion.div>
+
+      {rawImageSrc && (
+        <PhotoCropModal
+          imageSrc={rawImageSrc}
+          onCancel={() => setRawImageSrc(null)}
+          onConfirm={(croppedDataUrl) => {
+            setPhotoUrl(croppedDataUrl);
+            setRawImageSrc(null);
+          }}
+        />
+      )}
     </AnimatePresence>
   );
 }
