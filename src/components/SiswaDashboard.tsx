@@ -30,6 +30,7 @@ import { BLP_CATEGORIES } from '../data/activities';
 import { DailyRecord, UserProgress, ActivitySubmission } from '../types';
 import TextSubmissionModal from './modals/TextSubmissionModal';
 import QuranReadingModal from './modals/QuranReadingModal';
+import ProfileModal from './modals/ProfileModal';
 import { downloadRekapPDF, downloadRekapExcel } from '../utils/rekapExport';
 
 const QURAN_ACTIVITY_ID = 'd5';
@@ -72,6 +73,7 @@ interface SiswaDashboardProps {
   remindersEnabled: boolean;
   toggleReminders: () => void;
   onUpdateRecord: (dateKey: string, updatedRecord: DailyRecord) => void;
+  onUpdateProfile: (photoUrl: string | null, bio: string) => Promise<void> | void;
   onLogout: () => void;
 }
 
@@ -82,10 +84,12 @@ export default function SiswaDashboard({
   remindersEnabled, 
   toggleReminders,
   onUpdateRecord,
+  onUpdateProfile,
   onLogout
 }: SiswaDashboardProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [view, setView] = useState<'daily' | 'monthly' | 'settings'>('daily');
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   const records = user.records;
   const dateKey = format(selectedDate, 'yyyy-MM-dd');
@@ -179,12 +183,25 @@ export default function SiswaDashboard({
         <div className="max-w-2xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="bg-white dark:bg-slate-800 p-2 rounded-xl transition-colors">
-                <GraduationCap className="text-emerald-700 dark:text-emerald-400 w-6 h-6" />
-              </div>
+              <button
+                onClick={() => setShowProfileModal(true)}
+                className="w-10 h-10 rounded-xl overflow-hidden bg-white dark:bg-slate-800 flex items-center justify-center transition-colors shrink-0"
+                title="Edit Profil"
+              >
+                {user.photoUrl ? (
+                  <img src={user.photoUrl} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  <GraduationCap className="text-emerald-700 dark:text-emerald-400 w-6 h-6" />
+                )}
+              </button>
               <div>
                 <h1 className="text-xl font-bold tracking-tight">BLP Harian</h1>
-                <p className="text-xs text-emerald-100 dark:text-emerald-300">Siswa: {user.name}</p>
+                <button
+                  onClick={() => setShowProfileModal(true)}
+                  className="text-xs text-emerald-100 dark:text-emerald-300 hover:underline"
+                >
+                  Siswa: {user.name}
+                </button>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -566,6 +583,16 @@ export default function SiswaDashboard({
               recordedAt: new Date().toISOString(),
             });
           }}
+        />
+      )}
+
+      {showProfileModal && (
+        <ProfileModal
+          name={user.name}
+          currentPhotoUrl={user.photoUrl}
+          currentBio={user.bio}
+          onClose={() => setShowProfileModal(false)}
+          onSave={(photoUrl, bio) => onUpdateProfile(photoUrl, bio)}
         />
       )}
     </div>

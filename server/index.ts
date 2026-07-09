@@ -11,7 +11,7 @@ function toId(username: string) {
 
 async function loadStudent(id: string): Promise<UserProgress | null> {
   const studentRes = await pool.query(
-    'SELECT id, username, name, kelas, email, whatsapp, password FROM students WHERE id = $1',
+    'SELECT id, username, name, kelas, email, whatsapp, password, photo_url, bio FROM students WHERE id = $1',
     [id]
   );
   if (studentRes.rowCount === 0) return null;
@@ -40,13 +40,15 @@ async function loadStudent(id: string): Promise<UserProgress | null> {
     email: row.email,
     whatsapp: row.whatsapp,
     password: row.password,
+    photoUrl: row.photo_url,
+    bio: row.bio,
     records,
   };
 }
 
 async function loadGuru(id: string): Promise<GuruProfile | null> {
   const res = await pool.query(
-    'SELECT id, username, name, kelas_diampu, password FROM gurus WHERE id = $1',
+    'SELECT id, username, name, kelas_diampu, password, photo_url, bio FROM gurus WHERE id = $1',
     [id]
   );
   if (res.rowCount === 0) return null;
@@ -57,6 +59,8 @@ async function loadGuru(id: string): Promise<GuruProfile | null> {
     name: row.name,
     kelasDiampu: row.kelas_diampu || [],
     password: row.password,
+    photoUrl: row.photo_url,
+    bio: row.bio,
   };
 }
 
@@ -203,6 +207,54 @@ app.put('/api/students/:id/records/:date', async (req, res) => {
   } catch (err) {
     console.error('Failed to update record', err);
     res.status(500).json({ error: 'Gagal menyimpan data BLP' });
+  }
+});
+
+// Update siswa profile (photo + bio)
+app.put('/api/students/:id/profile', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { photoUrl, bio } = req.body || {};
+    const student = await pool.query('SELECT id FROM students WHERE id = $1', [id]);
+    if (student.rowCount === 0) {
+      return res.status(404).json({ error: 'Siswa tidak ditemukan' });
+    }
+    if (typeof photoUrl === 'string' && photoUrl.length > 3_000_000) {
+      return res.status(413).json({ error: 'Ukuran foto terlalu besar' });
+    }
+    await pool.query(
+      'UPDATE students SET photo_url = $2, bio = $3 WHERE id = $1',
+      [id, typeof photoUrl === 'string' ? photoUrl : null, typeof bio === 'string' ? bio : null]
+    );
+    const updated = await loadStudent(id);
+    res.json(updated);
+  } catch (err) {
+    console.error('Failed to update student profile', err);
+    res.status(500).json({ error: 'Gagal menyimpan profil' });
+  }
+});
+
+// Update guru profile (photo + bio)
+app.put('/api/gurus/:id/profile', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { photoUrl, bio } = req.body || {};
+    const guru = await pool.query('SELECT id FROM gurus WHERE id = $1', [id]);
+    if (guru.rowCount === 0) {
+      return res.status(404).json({ error: 'Guru tidak ditemukan' });
+    }
+    if (typeof photoUrl === 'string' && photoUrl.length > 3_000_000) {
+      return res.status(413).json({ error: 'Ukuran foto terlalu besar' });
+    }
+    await pool.query(
+      'UPDATE gurus SET photo_url = $2, bio = $3 WHERE id = $1',
+      [id, typeof photoUrl === 'string' ? photoUrl : null, typeof bio === 'string' ? bio : null]
+    );
+    const updated = await loadGuru(id);
+    res.json(updated);
+  } catch (err) {
+    console.error('Failed to update guru profile', err);
+    res.status(500).json({ error: 'Gagal menyimpan profil' });
   }
 });
 

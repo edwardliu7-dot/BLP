@@ -22,6 +22,7 @@ import { BLP_CATEGORIES } from '../data/activities';
 import { SystemData, DailyRecord, AuthState } from '../types';
 import { downloadRekapPDF, downloadRekapExcel } from '../utils/rekapExport';
 import { FileDown } from 'lucide-react';
+import ProfileModal from './modals/ProfileModal';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -31,12 +32,15 @@ interface GuruDashboardProps {
   systemData: SystemData;
   auth: AuthState;
   onLogout: () => void;
+  onUpdateProfile: (photoUrl: string | null, bio: string) => Promise<void> | void;
 }
 
-export default function GuruDashboard({ systemData, auth, onLogout }: GuruDashboardProps) {
+export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProfile }: GuruDashboardProps) {
   const [view, setView] = useState<'list' | 'detail' | 'presentation' | 'recap'>('list');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const guru = auth.userId ? systemData.gurus[auth.userId] : null;
 
   // Filter students based on teacher's classes
   const allowedClasses = auth.kelasDiampu || [];
@@ -57,9 +61,22 @@ export default function GuruDashboard({ systemData, auth, onLogout }: GuruDashbo
   const renderHeader = (title: string, subtitle: string) => (
     <header className="bg-slate-900 text-white shadow-lg sticky top-0 z-10">
       <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">{title}</h1>
-          <p className="text-sm text-slate-400">{subtitle}</p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowProfileModal(true)}
+            className="w-10 h-10 rounded-xl overflow-hidden bg-slate-800 flex items-center justify-center transition-colors shrink-0"
+            title="Edit Profil"
+          >
+            {guru?.photoUrl ? (
+              <img src={guru.photoUrl} alt={guru.name} className="w-full h-full object-cover" />
+            ) : (
+              <Users className="text-slate-300 w-5 h-5" />
+            )}
+          </button>
+          <div>
+            <h1 className="text-xl font-bold">{title}</h1>
+            <p className="text-sm text-slate-400">{subtitle}</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {view !== 'list' && (
@@ -196,6 +213,15 @@ export default function GuruDashboard({ systemData, auth, onLogout }: GuruDashbo
             </div>
           </div>
         </main>
+        {showProfileModal && guru && (
+          <ProfileModal
+            name={guru.name}
+            currentPhotoUrl={guru.photoUrl}
+            currentBio={guru.bio}
+            onClose={() => setShowProfileModal(false)}
+            onSave={(photoUrl, bio) => onUpdateProfile(photoUrl, bio)}
+          />
+        )}
       </div>
     );
   }
@@ -267,6 +293,15 @@ export default function GuruDashboard({ systemData, auth, onLogout }: GuruDashbo
             </table>
           </div>
         </main>
+        {showProfileModal && guru && (
+          <ProfileModal
+            name={guru.name}
+            currentPhotoUrl={guru.photoUrl}
+            currentBio={guru.bio}
+            onClose={() => setShowProfileModal(false)}
+            onSave={(photoUrl, bio) => onUpdateProfile(photoUrl, bio)}
+          />
+        )}
       </div>
     );
   }
@@ -382,6 +417,16 @@ export default function GuruDashboard({ systemData, auth, onLogout }: GuruDashbo
       </div>
 
       {DetailContent}
+
+      {showProfileModal && guru && (
+        <ProfileModal
+          name={guru.name}
+          currentPhotoUrl={guru.photoUrl}
+          currentBio={guru.bio}
+          onClose={() => setShowProfileModal(false)}
+          onSave={(photoUrl, bio) => onUpdateProfile(photoUrl, bio)}
+        />
+      )}
     </div>
   );
 }

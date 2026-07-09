@@ -159,6 +159,38 @@ export default function App() {
     }
   };
 
+  const handleUpdateStudentProfile = async (photoUrl: string | null, bio: string) => {
+    if (auth.role !== 'siswa' || !auth.userId) return;
+    const userId = auth.userId;
+    const res = await fetch(`/api/students/${encodeURIComponent(userId)}/profile`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ photoUrl, bio }),
+    });
+    if (!res.ok) throw new Error('Gagal menyimpan profil');
+    const updated: UserProgress = await res.json();
+    setSystemData(prev => ({
+      ...prev,
+      students: { ...prev.students, [userId]: updated },
+    }));
+  };
+
+  const handleUpdateGuruProfile = async (photoUrl: string | null, bio: string) => {
+    if (auth.role !== 'guru' || !auth.userId) return;
+    const userId = auth.userId;
+    const res = await fetch(`/api/gurus/${encodeURIComponent(userId)}/profile`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ photoUrl, bio }),
+    });
+    if (!res.ok) throw new Error('Gagal menyimpan profil');
+    const updated: GuruProfile = await res.json();
+    setSystemData(prev => ({
+      ...prev,
+      gurus: { ...prev.gurus, [userId]: updated },
+    }));
+  };
+
   if (!isInitialized) return null;
 
   if (loadError) {
@@ -180,6 +212,7 @@ export default function App() {
         remindersEnabled={remindersEnabled}
         toggleReminders={toggleReminders}
         onUpdateRecord={handleUpdateRecord}
+        onUpdateProfile={handleUpdateStudentProfile}
         onLogout={handleLogout}
       />
     );
@@ -191,6 +224,7 @@ export default function App() {
         systemData={systemData}
         auth={auth}
         onLogout={handleLogout}
+        onUpdateProfile={handleUpdateGuruProfile}
       />
     );
   }

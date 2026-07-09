@@ -40,6 +40,8 @@ export interface UserProgress {
   email: string;
   whatsapp: string;
   password?: string;
+  photoUrl?: string | null;
+  bio?: string | null;
   records: Record<string, DailyRecord>;
 }
 
@@ -49,6 +51,8 @@ export interface GuruProfile {
   name: string;
   kelasDiampu: string[];
   password?: string;
+  photoUrl?: string | null;
+  bio?: string | null;
 }
 
 export interface SystemData {
