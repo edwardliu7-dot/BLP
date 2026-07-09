@@ -116,33 +116,6 @@ app.post('/api/students', async (req, res) => {
   }
 });
 
-// Register guru
-app.post('/api/gurus', async (req, res) => {
-  try {
-    const { username, name, kelasDiampu, password } = req.body || {};
-    if (!username || !String(username).trim() || !name || !String(name).trim() || !password || !String(password).trim()) {
-      return res.status(400).json({ error: 'Username, Nama, dan Password wajib diisi' });
-    }
-    if (!Array.isArray(kelasDiampu) || kelasDiampu.length === 0) {
-      return res.status(400).json({ error: 'Kelas yang diampu wajib diisi' });
-    }
-    const id = toId(username);
-    const existing = await pool.query('SELECT id FROM gurus WHERE id = $1', [id]);
-    if ((existing.rowCount ?? 0) > 0) {
-      return res.status(409).json({ error: 'Username ini sudah terdaftar. Silakan login atau gunakan username lain.' });
-    }
-    await pool.query(
-      'INSERT INTO gurus (id, username, name, kelas_diampu, password) VALUES ($1, $2, $3, $4, $5)',
-      [id, username, name, kelasDiampu, password]
-    );
-    const guru = await loadGuru(id);
-    res.status(201).json(guru);
-  } catch (err) {
-    console.error('Failed to register guru', err);
-    res.status(500).json({ error: 'Gagal mendaftarkan guru' });
-  }
-});
-
 // Login siswa
 app.post('/api/login/siswa', async (req, res) => {
   try {
@@ -169,7 +142,7 @@ app.post('/api/login/guru', async (req, res) => {
     const id = toId(String(username || ''));
     const guru = await loadGuru(id);
     if (!guru) {
-      return res.status(404).json({ error: 'Username Anda belum terdaftar. Silakan pindah ke tab "Daftar Baru".' });
+      return res.status(404).json({ error: 'Username Anda belum terdaftar sebagai wali kelas. Silakan hubungi admin.' });
     }
     if (guru.password && guru.password !== password) {
       return res.status(401).json({ error: 'Password salah!' });

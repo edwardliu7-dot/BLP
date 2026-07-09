@@ -82,14 +82,6 @@ export default function App() {
     handleLogin({ role: 'siswa', userId: data.id, name: data.name, kelas: data.kelas });
   };
 
-  const handleRegisterGuru = (data: GuruProfile) => {
-    setSystemData(prev => ({
-      ...prev,
-      gurus: { ...prev.gurus, [data.id]: data }
-    }));
-    handleLogin({ role: 'guru', userId: data.id, name: data.name, kelasDiampu: data.kelasDiampu });
-  };
-
   const handleLogout = () => {
     setAuth({ role: null });
     localStorage.removeItem(AUTH_KEY);
@@ -203,7 +195,7 @@ export default function App() {
 
   if (auth.role === 'siswa' && auth.userId) {
     const user = systemData.students[auth.userId];
-    if (!user) return <Login onLogin={handleLogin} onRegisterSiswa={handleRegisterSiswa} onRegisterGuru={handleRegisterGuru} />; // Edge case fallback
+    if (!user) return <Login onLogin={handleLogin} onRegisterSiswa={handleRegisterSiswa} />; // Edge case fallback
     return (
       <SiswaDashboard 
         user={user}
@@ -229,5 +221,5 @@ export default function App() {
     );
   }
 
-  return <Login onLogin={handleLogin} onRegisterSiswa={handleRegisterSiswa} onRegisterGuru={handleRegisterGuru} />;
+  return <Login onLogin={handleLogin} onRegisterSiswa={handleRegisterSiswa} />;
 }

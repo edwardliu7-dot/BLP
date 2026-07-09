@@ -1,15 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GraduationCap, User, AtSign, Lock, ArrowRight, Mail, Phone, BookOpen, KeyRound } from 'lucide-react';
-import { AuthState, UserProgress, GuruProfile, KELAS_OPTIONS } from '../types';
+import { AuthState, UserProgress, KELAS_OPTIONS } from '../types';
 
 interface LoginProps {
   onLogin: (auth: AuthState) => void;
   onRegisterSiswa: (data: UserProgress) => void;
-  onRegisterGuru: (data: GuruProfile) => void;
 }
 
-export default function Login({ onLogin, onRegisterSiswa, onRegisterGuru }: LoginProps) {
+export default function Login({ onLogin, onRegisterSiswa }: LoginProps) {
   const [role, setRole] = useState<'siswa' | 'guru'>('siswa');
   const [mode, setMode] = useState<'login' | 'register'>('login');
 
@@ -19,7 +18,6 @@ export default function Login({ onLogin, onRegisterSiswa, onRegisterGuru }: Logi
   const [email, setEmail] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [kelas, setKelas] = useState('');
-  const [kelasDiampu, setKelasDiampu] = useState<string[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -30,7 +28,6 @@ export default function Login({ onLogin, onRegisterSiswa, onRegisterGuru }: Logi
     setEmail('');
     setWhatsapp('');
     setKelas('');
-    setKelasDiampu([]);
     setErrorMsg('');
   };
 
@@ -39,8 +36,12 @@ export default function Login({ onLogin, onRegisterSiswa, onRegisterGuru }: Logi
     resetForm();
   };
 
-  const toggleKelasDiampu = (value: string) => {
-    setKelasDiampu(prev => prev.includes(value) ? prev.filter(k => k !== value) : [...prev, value]);
+  const handleRoleSwitch = (newRole: 'siswa' | 'guru') => {
+    setRole(newRole);
+    if (newRole === 'guru') {
+      setMode('login');
+    }
+    resetForm();
   };
 
   const parseErrorMessage = async (res: Response, fallback: string) => {
@@ -62,41 +63,24 @@ export default function Login({ onLogin, onRegisterSiswa, onRegisterGuru }: Logi
         return;
       }
 
+      if (!kelas.trim() || !email.trim() || !whatsapp.trim()) {
+        setErrorMsg('Semua field wajib diisi untuk siswa');
+        return;
+      }
+
       setIsSubmitting(true);
       try {
-        if (role === 'siswa') {
-          if (!kelas.trim() || !email.trim() || !whatsapp.trim()) {
-            setErrorMsg('Semua field wajib diisi untuk siswa');
-            return;
-          }
-          const res = await fetch('/api/students', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, name, kelas, email, whatsapp, password }),
-          });
-          if (!res.ok) {
-            setErrorMsg(await parseErrorMessage(res, 'Gagal mendaftarkan siswa'));
-            return;
-          }
-          const student = await res.json();
-          onRegisterSiswa(student);
-        } else {
-          if (kelasDiampu.length === 0) {
-            setErrorMsg('Pilih minimal satu kelas yang diampu');
-            return;
-          }
-          const res = await fetch('/api/gurus', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, name, kelasDiampu, password }),
-          });
-          if (!res.ok) {
-            setErrorMsg(await parseErrorMessage(res, 'Gagal mendaftarkan guru'));
-            return;
-          }
-          const guru = await res.json();
-          onRegisterGuru(guru);
+        const res = await fetch('/api/students', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, name, kelas, email, whatsapp, password }),
+        });
+        if (!res.ok) {
+          setErrorMsg(await parseErrorMessage(res, 'Gagal mendaftarkan siswa'));
+          return;
         }
+        const student = await res.json();
+        onRegisterSiswa(student);
       } catch (err) {
         setErrorMsg('Gagal terhubung ke server. Silakan coba lagi.');
       } finally {
@@ -169,29 +153,31 @@ export default function Login({ onLogin, onRegisterSiswa, onRegisterGuru }: Logi
             </button>
             <button
               type="button"
-              onClick={() => setRole('guru')}
+              onClick={() => handleRoleSwitch('guru')}
               className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${role === 'guru' ? 'bg-white dark:bg-slate-700 shadow text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
             >
               Guru
             </button>
           </div>
 
-          <div className="flex justify-center gap-4 mb-6 border-b border-slate-200 dark:border-slate-800">
-            <button
-              type="button"
-              onClick={() => handleModeSwitch('login')}
-              className={`pb-2 text-sm font-bold border-b-2 transition-all ${mode === 'login' ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-            >
-              Masuk
-            </button>
-            <button
-              type="button"
-              onClick={() => handleModeSwitch('register')}
-              className={`pb-2 text-sm font-bold border-b-2 transition-all ${mode === 'register' ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-            >
-              Daftar Baru
-            </button>
-          </div>
+          {role === 'siswa' && (
+            <div className="flex justify-center gap-4 mb-6 border-b border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('login')}
+                className={`pb-2 text-sm font-bold border-b-2 transition-all ${mode === 'login' ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                Masuk
+              </button>
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('register')}
+                className={`pb-2 text-sm font-bold border-b-2 transition-all ${mode === 'register' ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                Daftar Baru
+              </button>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
 
@@ -261,82 +247,56 @@ export default function Login({ onLogin, onRegisterSiswa, onRegisterGuru }: Logi
                   exit={{ opacity: 0, height: 0 }}
                   className="space-y-4 overflow-hidden"
                 >
-                  {role === 'siswa' ? (
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kelas</label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <BookOpen className="h-5 w-5 text-slate-400" />
-                        </div>
-                        <select
-                          value={kelas}
-                          onChange={(e) => setKelas(e.target.value)}
-                          className="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white transition-colors appearance-none"
-                        >
-                          <option value="">Pilih kelas</option>
-                          {KELAS_OPTIONS.map(opt => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kelas</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <BookOpen className="h-5 w-5 text-slate-400" />
                       </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kelas Yang Diampu</label>
-                      <div className="space-y-2">
+                      <select
+                        value={kelas}
+                        onChange={(e) => setKelas(e.target.value)}
+                        className="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white transition-colors appearance-none"
+                      >
+                        <option value="">Pilih kelas</option>
                         {KELAS_OPTIONS.map(opt => (
-                          <label
-                            key={opt}
-                            className="flex items-center gap-3 p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={kelasDiampu.includes(opt)}
-                              onChange={() => toggleKelasDiampu(opt)}
-                              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                            />
-                            <span className="text-sm text-slate-900 dark:text-white">{opt}</span>
-                          </label>
+                          <option key={opt} value={opt}>{opt}</option>
                         ))}
-                      </div>
+                      </select>
                     </div>
-                  )}
+                  </div>
 
-                  {role === 'siswa' && (
-                    <>
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Email</label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Mail className="h-5 w-5 text-slate-400" />
-                          </div>
-                          <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="Email aktif"
-                            className="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white transition-colors"
-                          />
-                        </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Email</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Mail className="h-5 w-5 text-slate-400" />
                       </div>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Email aktif"
+                        className="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white transition-colors"
+                      />
+                    </div>
+                  </div>
 
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">No. WhatsApp</label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Phone className="h-5 w-5 text-slate-400" />
-                          </div>
-                          <input
-                            type="tel"
-                            value={whatsapp}
-                            onChange={(e) => setWhatsapp(e.target.value)}
-                            placeholder="Mulai dengan 62xxx"
-                            className="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white transition-colors"
-                          />
-                        </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">No. WhatsApp</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Phone className="h-5 w-5 text-slate-400" />
                       </div>
-                    </>
-                  )}
+                      <input
+                        type="tel"
+                        value={whatsapp}
+                        onChange={(e) => setWhatsapp(e.target.value)}
+                        placeholder="Mulai dengan 62xxx"
+                        className="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white transition-colors"
+                      />
+                    </div>
+                  </div>
                 </motion.div>
               </AnimatePresence>
             )}
