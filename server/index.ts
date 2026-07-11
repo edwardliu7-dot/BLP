@@ -43,6 +43,21 @@ function toId(username: string) {
   return normalizeUsername(username).toLowerCase().replace(/\s+/g, '-');
 }
 
+const BCRYPT_HASH_RE = /^\$2[aby]\$/;
+
+// This database is shared with other apps (e.g. "tomat") that write plaintext
+// passwords into the same students/gurus tables. Accept either: a bcrypt hash
+// (accounts registered through this app) or a plaintext match (legacy/other-app
+// accounts), so cross-app login keeps working without silently locking out
+// accounts this app didn't create.
+async function verifyPassword(inputPassword: string, storedPassword: string | null): Promise<boolean> {
+  if (!storedPassword) return true;
+  if (BCRYPT_HASH_RE.test(storedPassword)) {
+    return bcrypt.compare(inputPassword, storedPassword);
+  }
+  return inputPassword === storedPassword;
+}
+
 // Require a logged-in session whose user matches the requested role and, if
 // idParam is given, whose id matches the :id route param (i.e. users can only
 // act on their own account).
@@ -179,8 +194,7 @@ app.post('/api/login/siswa', async (req, res) => {
     if (passRes.rowCount === 0) {
       return res.status(404).json({ error: 'Username Anda belum terdaftar. Silakan pindah ke tab "Daftar Baru".' });
     }
-    const storedHash = passRes.rows[0].password;
-    const ok = storedHash ? await bcrypt.compare(String(password || ''), storedHash) : true;
+    const ok = await verifyPassword(String(password || ''), passRes.rows[0].password);
     if (!ok) {
       return res.status(401).json({ error: 'Password salah!' });
     }
@@ -203,8 +217,7 @@ app.post('/api/login/guru', async (req, res) => {
     if (passRes.rowCount === 0) {
       return res.status(404).json({ error: 'Username Anda belum terdaftar sebagai wali kelas. Silakan hubungi admin.' });
     }
-    const storedHash = passRes.rows[0].password;
-    const ok = storedHash ? await bcrypt.compare(String(password || ''), storedHash) : true;
+    const ok = await verifyPassword(String(password || ''), passRes.rows[0].password);
     if (!ok) {
       return res.status(401).json({ error: 'Password salah!' });
     }
