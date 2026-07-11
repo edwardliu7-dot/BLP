@@ -1,17 +1,66 @@
 import express from 'express';
+import session from 'express-session';
+import bcrypt from 'bcryptjs';
 import { pool } from './db';
 import type { UserProgress, GuruProfile, DailyRecord, SystemData } from '../src/types';
+
+declare module 'express-session' {
+  interface SessionData {
+    userId?: string;
+    role?: 'siswa' | 'guru';
+  }
+}
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
 
+if (!process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET environment variable is required');
+}
+
+app.set('trust proxy', 1);
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+  },
+}));
+
+// Only letters, numbers, spaces, dots, underscores and hyphens; collapse
+// internal whitespace so visually-identical usernames can't collide/duplicate.
+const USERNAME_RE = /^[a-zA-Z0-9._ -]{3,50}$/;
+
+function normalizeUsername(username: string) {
+  return username.trim().replace(/\s+/g, ' ');
+}
+
 function toId(username: string) {
-  return username.trim().toLowerCase().replace(/\s+/g, '-');
+  return normalizeUsername(username).toLowerCase().replace(/\s+/g, '-');
+}
+
+// Require a logged-in session whose user matches the requested role and, if
+// idParam is given, whose id matches the :id route param (i.e. users can only
+// act on their own account).
+function requireAuth(role: 'siswa' | 'guru', idParam?: string) {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (!req.session.userId || req.session.role !== role) {
+      return res.status(401).json({ error: 'Anda harus login untuk melakukan ini' });
+    }
+    if (idParam && req.session.userId !== req.params[idParam]) {
+      return res.status(403).json({ error: 'Anda tidak memiliki akses ke data ini' });
+    }
+    next();
+  };
 }
 
 async function loadStudent(id: string): Promise<UserProgress | null> {
   const studentRes = await pool.query(
-    'SELECT id, username, name, kelas, email, whatsapp, password, photo_url, bio FROM students WHERE id = $1',
+    'SELECT id, username, name, kelas, email, whatsapp, photo_url, bio FROM students WHERE id = $1',
     [id]
   );
   if (studentRes.rowCount === 0) return null;
@@ -39,7 +88,6 @@ async function loadStudent(id: string): Promise<UserProgress | null> {
     kelas: row.kelas,
     email: row.email,
     whatsapp: row.whatsapp,
-    password: row.password,
     photoUrl: row.photo_url,
     bio: row.bio,
     records,
@@ -48,7 +96,7 @@ async function loadStudent(id: string): Promise<UserProgress | null> {
 
 async function loadGuru(id: string): Promise<GuruProfile | null> {
   const res = await pool.query(
-    'SELECT id, username, name, kelas_diampu, password, photo_url, bio FROM gurus WHERE id = $1',
+    'SELECT id, username, name, kelas_diampu, photo_url, bio FROM gurus WHERE id = $1',
     [id]
   );
   if (res.rowCount === 0) return null;
@@ -58,7 +106,6 @@ async function loadGuru(id: string): Promise<GuruProfile | null> {
     username: row.username,
     name: row.name,
     kelasDiampu: row.kelas_diampu || [],
-    password: row.password,
     photoUrl: row.photo_url,
     bio: row.bio,
   };
@@ -99,16 +146,23 @@ app.post('/api/students', async (req, res) => {
     if (!kelas || !email || !whatsapp) {
       return res.status(400).json({ error: 'Semua field wajib diisi untuk siswa' });
     }
-    const id = toId(username);
+    if (!USERNAME_RE.test(normalizeUsername(String(username)))) {
+      return res.status(400).json({ error: 'Username hanya boleh berisi huruf, angka, spasi, titik, underscore, dan tanda hubung (3-50 karakter)' });
+    }
+    const cleanUsername = normalizeUsername(String(username));
+    const id = toId(cleanUsername);
     const existing = await pool.query('SELECT id FROM students WHERE id = $1', [id]);
     if ((existing.rowCount ?? 0) > 0) {
       return res.status(409).json({ error: 'Username ini sudah terdaftar. Silakan login atau gunakan username lain.' });
     }
+    const passwordHash = await bcrypt.hash(String(password), 10);
     await pool.query(
       'INSERT INTO students (id, username, name, kelas, email, whatsapp, password) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-      [id, username, name, kelas, email, whatsapp, password]
+      [id, cleanUsername, name, kelas, email, whatsapp, passwordHash]
     );
     const student = await loadStudent(id);
+    req.session.userId = id;
+    req.session.role = 'siswa';
     res.status(201).json(student);
   } catch (err) {
     console.error('Failed to register student', err);
@@ -121,13 +175,18 @@ app.post('/api/login/siswa', async (req, res) => {
   try {
     const { username, password } = req.body || {};
     const id = toId(String(username || ''));
-    const student = await loadStudent(id);
-    if (!student) {
+    const passRes = await pool.query('SELECT password FROM students WHERE id = $1', [id]);
+    if (passRes.rowCount === 0) {
       return res.status(404).json({ error: 'Username Anda belum terdaftar. Silakan pindah ke tab "Daftar Baru".' });
     }
-    if (student.password && student.password !== password) {
+    const storedHash = passRes.rows[0].password;
+    const ok = storedHash ? await bcrypt.compare(String(password || ''), storedHash) : true;
+    if (!ok) {
       return res.status(401).json({ error: 'Password salah!' });
     }
+    const student = await loadStudent(id);
+    req.session.userId = id;
+    req.session.role = 'siswa';
     res.json(student);
   } catch (err) {
     console.error('Failed to login siswa', err);
@@ -140,13 +199,18 @@ app.post('/api/login/guru', async (req, res) => {
   try {
     const { username, password } = req.body || {};
     const id = toId(String(username || ''));
-    const guru = await loadGuru(id);
-    if (!guru) {
+    const passRes = await pool.query('SELECT password FROM gurus WHERE id = $1', [id]);
+    if (passRes.rowCount === 0) {
       return res.status(404).json({ error: 'Username Anda belum terdaftar sebagai wali kelas. Silakan hubungi admin.' });
     }
-    if (guru.password && guru.password !== password) {
+    const storedHash = passRes.rows[0].password;
+    const ok = storedHash ? await bcrypt.compare(String(password || ''), storedHash) : true;
+    if (!ok) {
       return res.status(401).json({ error: 'Password salah!' });
     }
+    const guru = await loadGuru(id);
+    req.session.userId = id;
+    req.session.role = 'guru';
     res.json(guru);
   } catch (err) {
     console.error('Failed to login guru', err);
@@ -154,8 +218,15 @@ app.post('/api/login/guru', async (req, res) => {
   }
 });
 
+// Logout
+app.post('/api/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.json({ ok: true });
+  });
+});
+
 // Upsert a daily record (BLP checklist + score) for a student
-app.put('/api/students/:id/records/:date', async (req, res) => {
+app.put('/api/students/:id/records/:date', requireAuth('siswa', 'id'), async (req, res) => {
   try {
     const { id, date } = req.params;
     const { completedActivities, score, submissions } = req.body || {};
@@ -184,7 +255,7 @@ app.put('/api/students/:id/records/:date', async (req, res) => {
 });
 
 // Update siswa profile (photo + bio)
-app.put('/api/students/:id/profile', async (req, res) => {
+app.put('/api/students/:id/profile', requireAuth('siswa', 'id'), async (req, res) => {
   try {
     const { id } = req.params;
     const { photoUrl, bio } = req.body || {};
@@ -208,7 +279,7 @@ app.put('/api/students/:id/profile', async (req, res) => {
 });
 
 // Update guru profile (photo + bio)
-app.put('/api/gurus/:id/profile', async (req, res) => {
+app.put('/api/gurus/:id/profile', requireAuth('guru', 'id'), async (req, res) => {
   try {
     const { id } = req.params;
     const { photoUrl, bio } = req.body || {};
