@@ -2,8 +2,8 @@ FROM node:20-slim
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --no-audit --no-fund
+COPY package*.json .npmrc ./
+RUN npm ci
 
 COPY . .
 RUN npm run build

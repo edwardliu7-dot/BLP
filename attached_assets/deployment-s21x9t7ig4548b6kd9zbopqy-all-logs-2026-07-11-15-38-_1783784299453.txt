@@ -1,0 +1,254 @@
+2026-Jul-11 15:34:10.172922 Docker 29.6.1 with BuildKit and Buildx detected on deployment server (localhost).
+2026-Jul-11 15:34:10.254018 Starting deployment of edwardliu7-dot/BLP:main to localhost.
+2026-Jul-11 15:34:11.803668 Preparing container with helper image: docker.io/coollabsio/coolify-helper:1.0.14
+2026-Jul-11 15:34:12.399057 [DEBUG] [CMD]: docker stop --time=30 s21x9t7ig4548b6kd9zbopqy
+2026-Jul-11 15:34:12.399057 [DEBUG] Flag --time has been deprecated, use --timeout instead
+2026-Jul-11 15:34:12.463311 [DEBUG] Error response from daemon: No such container: s21x9t7ig4548b6kd9zbopqy
+2026-Jul-11 15:34:21.463068 [DEBUG] [CMD]: docker run -d --network 'coolify' --name s21x9t7ig4548b6kd9zbopqy  --rm -v /root/.docker/buildx:/root/.docker/buildx -v /var/run/docker.sock:/var/run/docker.sock docker.io/coollabsio/coolify-helper:1.0.14
+2026-Jul-11 15:34:21.463068 [DEBUG] 9e8383e903b2a97185e4bdb3e125fb9d60675ef1e44791fbb3def3346a90c849
+2026-Jul-11 15:34:28.172287 [DEBUG] [CMD]: docker exec s21x9t7ig4548b6kd9zbopqy bash -c 'GIT_SSH_COMMAND="ssh -o ConnectTimeout=30 -p 22 -o Port=22 -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" git ls-remote '\''https://x-access-token:<REDACTED>@github.com/edwardliu7-dot/BLP.git'\'' '\''refs/heads/main'\'''
+2026-Jul-11 15:34:28.172287 [DEBUG] dab6eb5dea27392be3289c1f5150332ebf2c1f1a	refs/heads/main
+2026-Jul-11 15:34:29.070886 ----------------------------------------
+2026-Jul-11 15:34:29.257378 Importing edwardliu7-dot/BLP:main (commit sha dab6eb5dea27392be3289c1f5150332ebf2c1f1a) to /artifacts/s21x9t7ig4548b6kd9zbopqy.
+2026-Jul-11 15:34:31.875001 [DEBUG] [CMD]: docker exec s21x9t7ig4548b6kd9zbopqy bash -c 'git -c '\''url.https://x-access-token:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 clone --depth=1 --recurse-submodules --shallow-submodules -b '\''main'\'' '\''https:<REDACTED>@github.com/edwardliu7-dot/BLP.git'\'' '\''/artifacts/s21x9t7ig4548b6kd9zbopqy'\'' && cd '\''/artifacts/s21x9t7ig4548b6kd9zbopqy'\'' && GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" git -c '\''url.https://x-access-token:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 fetch --depth=1 origin '\''dab6eb5dea27392be3289c1f5150332ebf2c1f1a'\'' && git -c '\''url.https:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 -c advice.detachedHead=false checkout '\''dab6eb5dea27392be3289c1f5150332ebf2c1f1a'\'' >/dev/null 2>&1 && cd '\''/artifacts/s21x9t7ig4548b6kd9zbopqy'\'' && if [ -f .gitmodules ]; then git -c '\''url.https:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 submodule sync && GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" git -c '\''url.https:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 submodule update --init --recursive --depth=1; fi && cd '\''/artifacts/s21x9t7ig4548b6kd9zbopqy'\'' && GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" git -c '\''url.https:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 lfs pull'
+2026-Jul-11 15:<REDACTED>@157.10.161.229:5432/postgres
+2026-Jul-11 15:34:52.650974 [DEBUG] ARG PORT=5000
+2026-Jul-11 15:34:52.650974 [DEBUG] ARG COOLIFY_URL=http://blp.coolify.io
+2026-Jul-11 15:<REDACTED>@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:35:08.441780 [DEBUG] #5 resolve docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:35:08.745785 [DEBUG] #5 resolve docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 0.5s done
+2026-Jul-11 15:35:08.745785 [DEBUG] #5 DONE 0.5s
+2026-Jul-11 15:35:08.904293 [DEBUG] #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:35:12.920560 [DEBUG] #5 ...
+2026-Jul-11 15:35:12.920560 [DEBUG] 
+2026-Jul-11 15:35:12.920560 [DEBUG] #4 [internal] load build context
+2026-Jul-11 15:35:12.920560 [DEBUG] #4 transferring context: 561.81kB 0.1s done
+2026-Jul-11 15:35:12.920560 [DEBUG] #4 DONE 4.2s
+2026-Jul-11 15:35:13.070495 [DEBUG] #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:35:14.143879 [DEBUG] #5 DONE 5.9s
+2026-Jul-11 15:35:14.414063 [DEBUG] #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:35:14.760146 [DEBUG] #5 sha256:3c02fd806613748139b8b8a14a69ae3518a1b0e863c57c35aada3b92ed87fb31 0B / 447B 0.2s
+2026-Jul-11 15:35:15.059650 [DEBUG] #5 sha256:3c02fd806613748139b8b8a14a69ae3518a1b0e863c57c35aada3b92ed87fb31 447B / 447B 0.5s
+2026-Jul-11 15:35:15.359842 [DEBUG] #5 sha256:64cfb949317c9824fd081d55c59a7225bfe1f650c6395ba42d7ed0ccf51993d2 0B / 1.71MB 0.2s
+2026-Jul-11 15:35:15.523995 [DEBUG] #5 sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 0B / 41.42MB 0.2s
+2026-Jul-11 15:35:15.836798 [DEBUG] #5 sha256:64cfb949317c9824fd081d55c59a7225bfe1f650c6395ba42d7ed0ccf51993d2 1.71MB / 1.71MB 0.6s
+2026-Jul-11 15:35:15.836798 [DEBUG] #5 sha256:e54aec64c365815cd7b91e718f00ac6e625562b1de09036b38614621b42c7582 0B / 3.31kB 0.3s
+2026-Jul-11 15:35:15.959425 [DEBUG] #5 sha256:3c02fd806613748139b8b8a14a69ae3518a1b0e863c57c35aada3b92ed87fb31 447B / 447B 1.3s done
+2026-Jul-11 15:35:15.959425 [DEBUG] #5 sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 4.19MB / 41.42MB 0.6s
+2026-Jul-11 15:35:16.123820 [DEBUG] #5 sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 11.53MB / 41.42MB 0.8s
+2026-Jul-11 15:35:16.123820 [DEBUG] #5 sha256:e54aec64c365815cd7b91e718f00ac6e625562b1de09036b38614621b42c7582 3.31kB / 3.31kB 0.5s
+2026-Jul-11 15:35:16.123820 [DEBUG] #5 sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 0B / 28.24MB 0.2s
+2026-Jul-11 15:35:16.306482 [DEBUG] #5 sha256:64cfb949317c9824fd081d55c59a7225bfe1f650c6395ba42d7ed0ccf51993d2 1.71MB / 1.71MB 1.0s done
+2026-Jul-11 15:35:16.306482 [DEBUG] #5 sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 18.87MB / 41.42MB 0.9s
+2026-Jul-11 15:35:16.443450 [DEBUG] #5 sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 26.21MB / 41.42MB 1.1s
+2026-Jul-11 15:35:16.551365 [DEBUG] #5 sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 34.60MB / 41.42MB 1.2s
+2026-Jul-11 15:35:16.551365 [DEBUG] #5 sha256:e54aec64c365815cd7b91e718f00ac6e625562b1de09036b38614621b42c7582 3.31kB / 3.31kB 0.9s done
+2026-Jul-11 15:35:16.729424 [DEBUG] #5 sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 41.42MB / 41.42MB 1.4s
+2026-Jul-11 15:35:16.729424 [DEBUG] #5 sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 4.19MB / 28.24MB 0.8s
+2026-Jul-11 15:35:16.873887 [DEBUG] #5 sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 11.53MB / 28.24MB 0.9s
+2026-Jul-11 15:35:17.031360 [DEBUG] #5 sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 16.53MB / 28.24MB 1.1s
+2026-Jul-11 15:35:17.200618 [DEBUG] #5 sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 41.42MB / 41.42MB 1.7s done
+2026-Jul-11 15:35:17.200618 [DEBUG] #5 sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 20.97MB / 28.24MB 1.2s
+2026-Jul-11 15:35:17.325109 [DEBUG] #5 sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 26.21MB / 28.24MB 1.4s
+2026-Jul-11 15:35:17.472975 [DEBUG] #5 sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 28.24MB / 28.24MB 1.5s
+2026-Jul-11 15:35:17.687628 [DEBUG] #5 sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 28.24MB / 28.24MB 1.7s done
+2026-Jul-11 15:35:17.896271 [DEBUG] #5 DONE 9.2s
+2026-Jul-11 15:35:17.997555 [DEBUG] #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:35:17.997555 [DEBUG] #5 extracting sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4
+2026-Jul-11 15:35:21.178127 [DEBUG] #5 extracting sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 3.2s done
+2026-Jul-11 15:35:21.178127 [DEBUG] #5 DONE 12.4s
+2026-Jul-11 15:35:21.337633 [DEBUG] #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:35:21.337633 [DEBUG] #5 extracting sha256:e54aec64c365815cd7b91e718f00ac6e625562b1de09036b38614621b42c7582
+2026-Jul-11 15:35:21.670660 [DEBUG] #5 extracting sha256:e54aec64c365815cd7b91e718f00ac6e625562b1de09036b38614621b42c7582 0.5s done
+2026-Jul-11 15:35:21.670660 [DEBUG] #5 DONE 12.9s
+2026-Jul-11 15:35:21.829006 [DEBUG] #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:35:21.829006 [DEBUG] #5 extracting sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f
+2026-Jul-11 15:35:28.777866 [DEBUG] #5 extracting sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 7.1s done
+2026-Jul-11 15:35:28.777866 [DEBUG] #5 DONE 20.0s
+2026-Jul-11 15:35:28.928390 [DEBUG] #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:35:28.928390 [DEBUG] #5 extracting sha256:64cfb949317c9824fd081d55c59a7225bfe1f650c6395ba42d7ed0ccf51993d2
+2026-Jul-11 15:35:30.620094 [DEBUG] #5 extracting sha256:64cfb949317c9824fd081d55c59a7225bfe1f650c6395ba42d7ed0ccf51993d2 1.8s done
+2026-Jul-11 15:35:30.620094 [DEBUG] #5 DONE 21.9s
+2026-Jul-11 15:35:30.770765 [DEBUG] #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:35:30.770765 [DEBUG] #5 extracting sha256:3c02fd806613748139b8b8a14a69ae3518a1b0e863c57c35aada3b92ed87fb31
+2026-Jul-11 15:35:31.212441 [DEBUG] #5 extracting sha256:3c02fd806613748139b8b8a14a69ae3518a1b0e863c57c35aada3b92ed87fb31 0.6s done
+2026-Jul-11 15:35:31.212441 [DEBUG] #5 DONE 22.5s
+2026-Jul-11 15:35:31.436424 [DEBUG] #6 [2/6] WORKDIR /app
+2026-Jul-11 15:35:33.500322 [DEBUG] #6 DONE 2.2s
+2026-Jul-11 15:35:33.753295 [DEBUG] #7 [3/6] COPY package*.json ./
+2026-Jul-11 15:35:37.612418 [DEBUG] #7 DONE 4.0s
+2026-Jul-11 15:35:37.858890 [DEBUG] #8 [4/6] RUN npm ci --no-audit --no-fund
+2026-Jul-11 15:35:48.072271 [DEBUG] #8 10.37 npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+2026-Jul-11 15:36:52.471624 [DEBUG] #8 74.76 npm notice
+2026-Jul-11 15:36:52.471624 [DEBUG] #8 74.76 npm notice New major version of npm available! 10.8.2 -> 12.0.1
+2026-Jul-11 15:36:52.471624 [DEBUG] #8 74.76 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.1
+2026-Jul-11 15:<REDACTED>@12.0.1
+2026-Jul-11 15:36:52.471624 [DEBUG] #8 74.76 npm notice
+2026-Jul-11 15:36:52.471624 [DEBUG] #8 74.76 npm error Exit handler never called!
+2026-Jul-11 15:36:52.625582 [DEBUG] #8 74.76 npm error This is an error with npm itself. Please report this error at:
+2026-Jul-11 15:36:52.625582 [DEBUG] #8 74.76 npm error   <https://github.com/npm/cli/issues>
+2026-Jul-11 15:<REDACTED>@0.0.0 build
+2026-Jul-11 15:37:00.207799 [DEBUG] #10 3.921 > vite build
+2026-Jul-11 15:37:00.207799 [DEBUG] #10 3.921
+2026-Jul-11 15:37:00.406453 [DEBUG] #10 3.964 sh: 1: vite: not found
+2026-Jul-11 15:37:01.052928 [DEBUG] #10 ERROR: process "/bin/sh -c npm run build" did not complete successfully: exit code: 127
+2026-Jul-11 15:37:03.800333 [DEBUG] ------
+2026-Jul-11 15:37:03.800333 [DEBUG] > [6/6] RUN npm run build:
+2026-Jul-11 15:37:03.800333 [DEBUG] 3.921
+2026-Jul-11 15:37:03.800333 [DEBUG] 3.921 > react-example@0.0.0 build
+2026-Jul-11 15:37:03.800333 [DEBUG] 3.921 > vite build
+2026-Jul-11 15:37:03.800333 [DEBUG] 3.921
+2026-Jul-11 15:37:03.800333 [DEBUG] 3.964 sh: 1: vite: not found
+2026-Jul-11 15:37:03.800333 [DEBUG] ------
+2026-Jul-11 15:37:03.965305 [DEBUG] Dockerfile:17
+2026-Jul-11 15:37:03.965305 [DEBUG] --------------------
+2026-Jul-11 15:37:03.965305 [DEBUG] 15 |
+2026-Jul-11 15:37:03.965305 [DEBUG] 16 |     COPY . .
+2026-Jul-11 15:37:03.965305 [DEBUG] 17 | >>> RUN npm run build
+2026-Jul-11 15:37:03.965305 [DEBUG] 18 |
+2026-Jul-11 15:37:03.965305 [DEBUG] 19 |     ENV NODE_ENV=production
+2026-Jul-11 15:37:03.965305 [DEBUG] --------------------
+2026-Jul-11 15:37:03.965305 [DEBUG] ERROR: failed to build: failed to solve: process "/bin/sh -c npm run build" did not complete successfully: exit code: 127
+2026-Jul-11 15:37:03.965305 [DEBUG] exit status 1
+2026-Jul-11 15:37:05.168934 ========================================
+2026-Jul-11 15:37:05.242334 Deployment failed: Command execution failed (exit code 1): docker exec s21x9t7ig4548b6kd9zbopqy bash -c 'bash /artifacts/build.sh'
+2026-Jul-11 15:37:05.242334 Error: #0 building with "default" instance using docker driver
+2026-Jul-11 15:37:05.242334 
+2026-Jul-11 15:37:05.242334 #1 [internal] load build definition from Dockerfile
+2026-Jul-11 15:37:05.242334 #1 transferring dockerfile:
+2026-Jul-11 15:37:05.242334 #1 transferring dockerfile: 556B 0.0s done
+2026-Jul-11 15:37:05.242334 #1 DONE 1.8s
+2026-Jul-11 15:37:05.242334 
+2026-Jul-11 15:37:05.242334 #2 [internal] load metadata for docker.io/library/node:20-slim
+2026-Jul-11 15:37:05.242334 #2 DONE 8.7s
+2026-Jul-11 15:37:05.242334 
+2026-Jul-11 15:37:05.242334 #3 [internal] load .dockerignore
+2026-Jul-11 15:37:05.242334 #3 transferring context:
+2026-Jul-11 15:37:05.242334 #3 transferring context: 105B 0.0s done
+2026-Jul-11 15:37:05.242334 #3 DONE 1.0s
+2026-Jul-11 15:37:05.242334 
+2026-Jul-11 15:37:05.242334 #4 [internal] load build context
+2026-Jul-11 15:37:05.242334 #4 DONE 0.0s
+2026-Jul-11 15:37:05.242334 
+2026-Jul-11 15:37:05.242334 #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:37:05.242334 #5 resolve docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:37:05.242334 #5 resolve docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 0.5s done
+2026-Jul-11 15:37:05.242334 #5 DONE 0.5s
+2026-Jul-11 15:37:05.242334 
+2026-Jul-11 15:37:05.242334 #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:37:05.242334 #5 ...
+2026-Jul-11 15:37:05.242334 
+2026-Jul-11 15:37:05.242334 #4 [internal] load build context
+2026-Jul-11 15:37:05.242334 #4 transferring context: 561.81kB 0.1s done
+2026-Jul-11 15:37:05.242334 #4 DONE 4.2s
+2026-Jul-11 15:37:05.242334 
+2026-Jul-11 15:37:05.242334 #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:37:05.242334 #5 DONE 5.9s
+2026-Jul-11 15:37:05.242334 
+2026-Jul-11 15:37:05.242334 #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:37:05.242334 #5 sha256:3c02fd806613748139b8b8a14a69ae3518a1b0e863c57c35aada3b92ed87fb31 0B / 447B 0.2s
+2026-Jul-11 15:37:05.242334 #5 sha256:3c02fd806613748139b8b8a14a69ae3518a1b0e863c57c35aada3b92ed87fb31 447B / 447B 0.5s
+2026-Jul-11 15:37:05.242334 #5 sha256:64cfb949317c9824fd081d55c59a7225bfe1f650c6395ba42d7ed0ccf51993d2 0B / 1.71MB 0.2s
+2026-Jul-11 15:37:05.242334 #5 sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 0B / 41.42MB 0.2s
+2026-Jul-11 15:37:05.242334 #5 sha256:64cfb949317c9824fd081d55c59a7225bfe1f650c6395ba42d7ed0ccf51993d2 1.71MB / 1.71MB 0.6s
+2026-Jul-11 15:37:05.242334 #5 sha256:e54aec64c365815cd7b91e718f00ac6e625562b1de09036b38614621b42c7582 0B / 3.31kB 0.3s
+2026-Jul-11 15:37:05.242334 #5 sha256:3c02fd806613748139b8b8a14a69ae3518a1b0e863c57c35aada3b92ed87fb31 447B / 447B 1.3s done
+2026-Jul-11 15:37:05.242334 #5 sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 4.19MB / 41.42MB 0.6s
+2026-Jul-11 15:37:05.242334 #5 sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 11.53MB / 41.42MB 0.8s
+2026-Jul-11 15:37:05.242334 #5 sha256:e54aec64c365815cd7b91e718f00ac6e625562b1de09036b38614621b42c7582 3.31kB / 3.31kB 0.5s
+2026-Jul-11 15:37:05.242334 #5 sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 0B / 28.24MB 0.2s
+2026-Jul-11 15:37:05.242334 #5 sha256:64cfb949317c9824fd081d55c59a7225bfe1f650c6395ba42d7ed0ccf51993d2 1.71MB / 1.71MB 1.0s done
+2026-Jul-11 15:37:05.242334 #5 sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 18.87MB / 41.42MB 0.9s
+2026-Jul-11 15:37:05.242334 #5 sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 26.21MB / 41.42MB 1.1s
+2026-Jul-11 15:37:05.242334 #5 sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 34.60MB / 41.42MB 1.2s
+2026-Jul-11 15:37:05.242334 #5 sha256:e54aec64c365815cd7b91e718f00ac6e625562b1de09036b38614621b42c7582 3.31kB / 3.31kB 0.9s done
+2026-Jul-11 15:37:05.242334 #5 sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 41.42MB / 41.42MB 1.4s
+2026-Jul-11 15:37:05.242334 #5 sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 4.19MB / 28.24MB 0.8s
+2026-Jul-11 15:37:05.242334 #5 sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 11.53MB / 28.24MB 0.9s
+2026-Jul-11 15:37:05.242334 #5 sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 16.53MB / 28.24MB 1.1s
+2026-Jul-11 15:37:05.242334 #5 sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 41.42MB / 41.42MB 1.7s done
+2026-Jul-11 15:37:05.242334 #5 sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 20.97MB / 28.24MB 1.2s
+2026-Jul-11 15:37:05.242334 #5 sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 26.21MB / 28.24MB 1.4s
+2026-Jul-11 15:37:05.242334 #5 sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 28.24MB / 28.24MB 1.5s
+2026-Jul-11 15:37:05.242334 #5 sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 28.24MB / 28.24MB 1.7s done
+2026-Jul-11 15:37:05.242334 #5 DONE 9.2s
+2026-Jul-11 15:37:05.242334 
+2026-Jul-11 15:37:05.242334 #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:37:05.242334 #5 extracting sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4
+2026-Jul-11 15:37:05.242334 #5 extracting sha256:ff86ea2e5edce334d19a34fbc65d1a511aa1fc823dba1110422f991aa56b44d4 3.2s done
+2026-Jul-11 15:37:05.242334 #5 DONE 12.4s
+2026-Jul-11 15:37:05.242334 
+2026-Jul-11 15:37:05.242334 #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:37:05.242334 #5 extracting sha256:e54aec64c365815cd7b91e718f00ac6e625562b1de09036b38614621b42c7582
+2026-Jul-11 15:37:05.242334 #5 extracting sha256:e54aec64c365815cd7b91e718f00ac6e625562b1de09036b38614621b42c7582 0.5s done
+2026-Jul-11 15:37:05.242334 #5 DONE 12.9s
+2026-Jul-11 15:37:05.242334 
+2026-Jul-11 15:37:05.242334 #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:37:05.242334 #5 extracting sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f
+2026-Jul-11 15:37:05.242334 #5 extracting sha256:804d4d68057cbb26cbcde9a735148ebc6589911bad32cf9dbddb5b0ba878bf1f 7.1s done
+2026-Jul-11 15:37:05.242334 #5 DONE 20.0s
+2026-Jul-11 15:37:05.242334 
+2026-Jul-11 15:37:05.242334 #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:37:05.242334 #5 extracting sha256:64cfb949317c9824fd081d55c59a7225bfe1f650c6395ba42d7ed0ccf51993d2
+2026-Jul-11 15:37:05.242334 #5 extracting sha256:64cfb949317c9824fd081d55c59a7225bfe1f650c6395ba42d7ed0ccf51993d2 1.8s done
+2026-Jul-11 15:37:05.242334 #5 DONE 21.9s
+2026-Jul-11 15:37:05.242334 
+2026-Jul-11 15:37:05.242334 #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-11 15:37:05.242334 #5 extracting sha256:3c02fd806613748139b8b8a14a69ae3518a1b0e863c57c35aada3b92ed87fb31
+2026-Jul-11 15:37:05.242334 #5 extracting sha256:3c02fd806613748139b8b8a14a69ae3518a1b0e863c57c35aada3b92ed87fb31 0.6s done
+2026-Jul-11 15:37:05.242334 #5 DONE 22.5s
+2026-Jul-11 15:37:05.242334 
+2026-Jul-11 15:37:05.242334 #6 [2/6] WORKDIR /app
+2026-Jul-11 15:37:05.242334 #6 DONE 2.2s
+2026-Jul-11 15:37:05.242334 
+2026-Jul-11 15:37:05.242334 #7 [3/6] COPY package*.json ./
+2026-Jul-11 15:37:05.242334 #7 DONE 4.0s
+2026-Jul-11 15:37:05.242334 
+2026-Jul-11 15:37:05.242334 #8 [4/6] RUN npm ci --no-audit --no-fund
+2026-Jul-11 15:37:05.242334 #8 10.37 npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+2026-Jul-11 15:37:05.242334 #8 74.76 npm notice
+2026-Jul-11 15:37:05.242334 #8 74.76 npm notice New major version of npm available! 10.8.2 -> 12.0.1
+2026-Jul-11 15:37:05.242334 #8 74.76 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.1
+2026-Jul-11 15:<REDACTED>@12.0.1
+2026-Jul-11 15:37:05.242334 #8 74.76 npm notice
+2026-Jul-11 15:37:05.242334 #8 74.76 npm error Exit handler never called!
+2026-Jul-11 15:37:05.242334 #8 74.76 npm error This is an error with npm itself. Please report this error at:
+2026-Jul-11 15:37:05.242334 #8 74.76 npm error   <https://github.com/npm/cli/issues>
+2026-Jul-11 15:<REDACTED>@0.0.0 build
+2026-Jul-11 15:37:05.242334 #10 3.921 > vite build
+2026-Jul-11 15:37:05.242334 #10 3.921
+2026-Jul-11 15:37:05.242334 #10 3.964 sh: 1: vite: not found
+2026-Jul-11 15:37:05.242334 #10 ERROR: process "/bin/sh -c npm run build" did not complete successfully: exit code: 127
+2026-Jul-11 15:37:05.242334 ------
+2026-Jul-11 15:37:05.242334 > [6/6] RUN npm run build:
+2026-Jul-11 15:37:05.242334 3.921
+2026-Jul-11 15:37:05.242334 3.921 > react-example@0.0.0 build
+2026-Jul-11 15:37:05.242334 3.921 > vite build
+2026-Jul-11 15:37:05.242334 3.921
+2026-Jul-11 15:37:05.242334 3.964 sh: 1: vite: not found
+2026-Jul-11 15:37:05.242334 ------
+2026-Jul-11 15:37:05.242334 Dockerfile:17
+2026-Jul-11 15:37:05.242334 --------------------
+2026-Jul-11 15:37:05.242334 15 |
+2026-Jul-11 15:37:05.242334 16 |     COPY . .
+2026-Jul-11 15:37:05.242334 17 | >>> RUN npm run build
+2026-Jul-11 15:37:05.242334 18 |
+2026-Jul-11 15:37:05.242334 19 |     ENV NODE_ENV=production
+2026-Jul-11 15:37:05.242334 --------------------
+2026-Jul-11 15:37:05.242334 ERROR: failed to build: failed to solve: process "/bin/sh -c npm run build" did not complete successfully: exit code: 127
+2026-Jul-11 15:37:05.242334 exit status 1
+2026-Jul-11 15:37:05.308486 [DEBUG] Error type: App\Exceptions\DeploymentException
+2026-Jul-11 15:37:05.339437 [DEBUG] Error code: 0
+2026-Jul-11 15:37:05.377570 [DEBUG] Location: /var/www/html/app/Traits/ExecuteRemoteCommand.php:242
+2026-Jul-11 15:37:05.425457 [DEBUG] Stack trace (first 5 lines):
+2026-Jul-11 15:37:05.492721 [DEBUG] #0 /var/www/html/app/Traits/ExecuteRemoteCommand.php(106): App\Jobs\ApplicationDeploymentJob->executeCommandWithProcess()
+2026-Jul-11 15:37:05.547342 [DEBUG] #1 /var/www/html/vendor/laravel/framework/src/Illuminate/Collections/Traits/EnumeratesValues.php(275): App\Jobs\ApplicationDeploymentJob->{closure:App\Traits\ExecuteRemoteCommand::execute_remote_command():72}()
+2026-Jul-11 15:37:05.605441 [DEBUG] #2 /var/www/html/app/Traits/ExecuteRemoteCommand.php(72): Illuminate\Support\Collection->each()
+2026-Jul-11 15:37:06.128947 [DEBUG] #3 /var/www/html/app/Jobs/ApplicationDeploymentJob.php(3821): App\Jobs\ApplicationDeploymentJob->execute_remote_command()
+2026-Jul-11 15:37:06.246402 [DEBUG] #4 /var/www/html/app/Jobs/ApplicationDeploymentJob.php(912): App\Jobs\ApplicationDeploymentJob->build_image()
+2026-Jul-11 15:37:06.292946 ========================================
+2026-Jul-11 15:37:06.350315 Deployment failed. Removing the new version of your application.
+2026-Jul-11 15:37:08.842443 Gracefully shutting down build container: s21x9t7ig4548b6kd9zbopqy
+2026-Jul-11 15:37:09.318208 [DEBUG] [CMD]: docker stop --time=30 s21x9t7ig4548b6kd9zbopqy
+2026-Jul-11 15:37:09.318208 [DEBUG] Flag --time has been deprecated, use --timeout instead
+2026-Jul-11 15:37:12.573785 [DEBUG] s21x9t7ig4548b6kd9zbopqy
