@@ -1,0 +1,111 @@
+2026-Jul-11 14:30:44.448994 Docker 29.6.1 with BuildKit and Buildx detected on deployment server (localhost).
+2026-Jul-11 14:30:44.884676 Starting deployment of edwardliu7-dot/BLP:main to localhost.
+2026-Jul-11 14:30:48.643334 Preparing container with helper image: docker.io/coollabsio/coolify-helper:1.0.14
+2026-Jul-11 14:30:49.694776 [DEBUG] [CMD]: docker stop --time=30 t7ruavo5io0z8i3ahdkrh23v
+2026-Jul-11 14:30:49.694776 [DEBUG] Flag --time has been deprecated, use --timeout instead
+2026-Jul-11 14:30:49.779568 [DEBUG] Error response from daemon: No such container: t7ruavo5io0z8i3ahdkrh23v
+2026-Jul-11 14:30:53.438584 [DEBUG] [CMD]: docker run -d --network 'coolify' --name t7ruavo5io0z8i3ahdkrh23v  --rm -v /root/.docker/buildx:/root/.docker/buildx -v /var/run/docker.sock:/var/run/docker.sock docker.io/coollabsio/coolify-helper:1.0.14
+2026-Jul-11 14:30:53.438584 [DEBUG] 4ae5c40cba3bc7e4732cbc43c03632e3d2cb4c9825987bea2fbcff4109899602
+2026-Jul-11 14:31:06.641832 [DEBUG] [CMD]: docker exec t7ruavo5io0z8i3ahdkrh23v bash -c 'GIT_SSH_COMMAND="ssh -o ConnectTimeout=30 -p 22 -o Port=22 -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" git ls-remote '\''https://x-access-token:<REDACTED>@github.com/edwardliu7-dot/BLP.git'\'' '\''refs/heads/main'\'''
+2026-Jul-11 14:31:06.641832 [DEBUG] 23f58dd86dca622b16acf11513bb829528c31426	refs/heads/main
+2026-Jul-11 14:31:07.496947 Image not found (nswzqjz1jnr821kuh3s9aji1:23f58dd86dca622b16acf11513bb829528c31426). Building new image.
+2026-Jul-11 14:31:09.093754 ----------------------------------------
+2026-Jul-11 14:31:09.139361 Importing edwardliu7-dot/BLP:main (commit sha 23f58dd86dca622b16acf11513bb829528c31426) to /artifacts/t7ruavo5io0z8i3ahdkrh23v.
+2026-Jul-11 14:31:09.775418 [DEBUG] [CMD]: docker exec t7ruavo5io0z8i3ahdkrh23v bash -c 'git -c '\''url.https://x-access-token:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 clone --depth=1 --recurse-submodules --shallow-submodules -b '\''main'\'' '\''https:<REDACTED>@github.com/edwardliu7-dot/BLP.git'\'' '\''/artifacts/t7ruavo5io0z8i3ahdkrh23v'\'' && cd '\''/artifacts/t7ruavo5io0z8i3ahdkrh23v'\'' && GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" git -c '\''url.https://x-access-token:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 fetch --depth=1 origin '\''23f58dd86dca622b16acf11513bb829528c31426'\'' && git -c '\''url.https:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 -c advice.detachedHead=false checkout '\''23f58dd86dca622b16acf11513bb829528c31426'\'' >/dev/null 2>&1 && cd '\''/artifacts/t7ruavo5io0z8i3ahdkrh23v'\'' && if [ -f .gitmodules ]; then git -c '\''url.https:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 submodule sync && GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" git -c '\''url.https:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 submodule update --init --recursive --depth=1; fi && cd '\''/artifacts/t7ruavo5io0z8i3ahdkrh23v'\'' && GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" git -c '\''url.https:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 lfs pull'
+2026-Jul-11 14:<REDACTED>@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+2026-Jul-11 14:31:30.871782 [DEBUG] #4 resolve ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de 0.7s done
+2026-Jul-11 14:31:30.871782 [DEBUG] #4 DONE 0.8s
+2026-Jul-11 14:31:31.036855 [DEBUG] #5 [internal] load build context
+2026-Jul-11 14:31:34.347791 [DEBUG] #5 transferring context: 1.25MB 0.1s done
+2026-Jul-11 14:31:37.529489 [DEBUG] #5 DONE 6.6s
+2026-Jul-11 14:31:39.486205 [DEBUG] #6 [stage-0  2/11] WORKDIR /app/
+2026-Jul-11 14:31:39.486205 [DEBUG] #6 CACHED
+2026-Jul-11 14:31:39.486205 [DEBUG] 
+2026-Jul-11 14:31:39.486205 [DEBUG] #7 [stage-0  3/16] COPY .nixpacks/nixpkgs-ba913eda2df8eb72147259189d55932012df6301.nix .nixpacks/nixpkgs-ba913eda2df8eb72147259189d55932012df6301.nix
+2026-Jul-11 14:31:39.486205 [DEBUG] #7 CACHED
+2026-Jul-11 14:31:40.217393 [DEBUG] #8 [stage-0  3/16] COPY .nixpacks/nixpkgs-ba913eda2df8eb72147259189d55932012df6301.nix .nixpacks/nixpkgs-ba913eda2df8eb72147259189d55932012df6301.nix
+2026-Jul-11 14:31:40.217393 [DEBUG] #8 CACHED
+2026-Jul-11 14:31:40.217393 [DEBUG] 
+2026-Jul-11 14:31:40.217393 [DEBUG] #9 [stage-0  4/16] RUN nix-env -if .nixpacks/nixpkgs-ba913eda2df8eb72147259189d55932012df6301.nix && nix-collect-garbage -d
+2026-Jul-11 14:31:47.571874 [DEBUG] #9 8.079 unpacking 'https://github.com/NixOS/nixpkgs/archive/ba913eda2df8eb72147259189d55932012df6301.tar.gz' into the Git cache...
+2026-Jul-11 14:<REDACTED>@vitejs/plugin-react@5.2.0',
+2026-Jul-11 14:47:59.326700 [DEBUG] #17 9.561 npm warn EBADENGINE   required: { node: '^20.19.0 || >=22.12.0' },
+2026-Jul-11 14:47:59.326700 [DEBUG] #17 9.561 npm warn EBADENGINE   current: { node: 'v22.11.0', npm: '10.9.0' }
+2026-Jul-11 14:47:59.326700 [DEBUG] #17 9.561 npm warn EBADENGINE }
+2026-Jul-11 14:48:10.680395 [DEBUG] #17 20.91 npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+2026-Jul-11 14:49:15.159750 [DEBUG] #17 85.39 npm error Exit handler never called!
+2026-Jul-11 14:49:15.159750 [DEBUG] #17 85.39 npm error This is an error with npm itself. Please report this error at:
+2026-Jul-11 14:49:15.159750 [DEBUG] #17 85.39 npm error   <https://github.com/npm/cli/issues>
+2026-Jul-11 14:<REDACTED>@vitejs/plugin-react@5.2.0',
+2026-Jul-11 14:49:18.030931 [DEBUG] 9.561 npm warn EBADENGINE   required: { node: '^20.19.0 || >=22.12.0' },
+2026-Jul-11 14:49:18.030931 [DEBUG] 9.561 npm warn EBADENGINE   current: { node: 'v22.11.0', npm: '10.9.0' }
+2026-Jul-11 14:49:18.030931 [DEBUG] 9.561 npm warn EBADENGINE }
+2026-Jul-11 14:49:18.030931 [DEBUG] 20.91 npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+2026-Jul-11 14:49:18.030931 [DEBUG] 85.39 npm error Exit handler never called!
+2026-Jul-11 14:49:18.030931 [DEBUG] 85.39 npm error This is an error with npm itself. Please report this error at:
+2026-Jul-11 14:49:18.030931 [DEBUG] 85.39 npm error   <https://github.com/npm/cli/issues>
+2026-Jul-11 14:<REDACTED>@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+2026-Jul-11 14:49:25.535850 #4 resolve ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de 0.7s done
+2026-Jul-11 14:49:25.535850 #4 DONE 0.8s
+2026-Jul-11 14:49:25.535850 
+2026-Jul-11 14:49:25.535850 #5 [internal] load build context
+2026-Jul-11 14:49:25.535850 #5 transferring context: 1.25MB 0.1s done
+2026-Jul-11 14:49:25.535850 #5 DONE 6.6s
+2026-Jul-11 14:49:25.535850 
+2026-Jul-11 14:49:25.535850 #6 [stage-0  2/11] WORKDIR /app/
+2026-Jul-11 14:49:25.535850 #6 CACHED
+2026-Jul-11 14:49:25.535850 
+2026-Jul-11 14:49:25.535850 #7 [stage-0  3/16] COPY .nixpacks/nixpkgs-ba913eda2df8eb72147259189d55932012df6301.nix .nixpacks/nixpkgs-ba913eda2df8eb72147259189d55932012df6301.nix
+2026-Jul-11 14:49:25.535850 #7 CACHED
+2026-Jul-11 14:49:25.535850 
+2026-Jul-11 14:49:25.535850 #8 [stage-0  3/16] COPY .nixpacks/nixpkgs-ba913eda2df8eb72147259189d55932012df6301.nix .nixpacks/nixpkgs-ba913eda2df8eb72147259189d55932012df6301.nix
+2026-Jul-11 14:49:25.535850 #8 CACHED
+2026-Jul-11 14:49:25.535850 
+2026-Jul-11 14:49:25.535850 #9 [stage-0  4/16] RUN nix-env -if .nixpacks/nixpkgs-ba913eda2df8eb72147259189d55932012df6301.nix && nix-collect-garbage -d
+2026-Jul-11 14:49:25.535850 #9 8.079 unpacking 'https://github.com/NixOS/nixpkgs/archive/ba913eda2df8eb72147259189d55932012df6301.tar.gz' into the Git cache...
+2026-Jul-11 14:<REDACTED>@vitejs/plugin-react@5.2.0',
+2026-Jul-11 14:49:25.535850 #17 9.561 npm warn EBADENGINE   required: { node: '^20.19.0 || >=22.12.0' },
+2026-Jul-11 14:49:25.535850 #17 9.561 npm warn EBADENGINE   current: { node: 'v22.11.0', npm: '10.9.0' }
+2026-Jul-11 14:49:25.535850 #17 9.561 npm warn EBADENGINE }
+2026-Jul-11 14:49:25.535850 #17 20.91 npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+2026-Jul-11 14:49:25.535850 #17 85.39 npm error Exit handler never called!
+2026-Jul-11 14:49:25.535850 #17 85.39 npm error This is an error with npm itself. Please report this error at:
+2026-Jul-11 14:49:25.535850 #17 85.39 npm error   <https://github.com/npm/cli/issues>
+2026-Jul-11 14:<REDACTED>@vitejs/plugin-react@5.2.0',
+2026-Jul-11 14:49:25.535850 9.561 npm warn EBADENGINE   required: { node: '^20.19.0 || >=22.12.0' },
+2026-Jul-11 14:49:25.535850 9.561 npm warn EBADENGINE   current: { node: 'v22.11.0', npm: '10.9.0' }
+2026-Jul-11 14:49:25.535850 9.561 npm warn EBADENGINE }
+2026-Jul-11 14:49:25.535850 20.91 npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+2026-Jul-11 14:49:25.535850 85.39 npm error Exit handler never called!
+2026-Jul-11 14:49:25.535850 85.39 npm error This is an error with npm itself. Please report this error at:
+2026-Jul-11 14:49:25.535850 85.39 npm error   <https://github.com/npm/cli/issues>
+2026-Jul-11 14:49:25.535850 85.39 npm error A complete log of this run can be found in: /root/.npm/_logs/2026-07-11T14_47_53_087Z-debug-0.log
+2026-Jul-11 14:49:25.535850 ------
+2026-Jul-11 14:49:25.535850 
+2026-Jul-11 14:49:25.535850 1 warning found (use docker --debug to expand):
+2026-Jul-11 14:49:25.535850 - UndefinedVar: Usage of undefined variable '$NIXPACKS_PATH' (line 24)
+2026-Jul-11 14:49:25.535850 Dockerfile:26
+2026-Jul-11 14:49:25.535850 --------------------
+2026-Jul-11 14:49:25.535850 24 |     ENV NIXPACKS_PATH=/app/node_modules/.bin:$NIXPACKS_PATH
+2026-Jul-11 14:49:25.535850 25 |     COPY . /app/.
+2026-Jul-11 14:49:25.535850 26 | >>> RUN --mount=type=cache,id=nswzqjz1jnr821kuh3s9aji1-/root/npm,target=/root/.npm npm install
+2026-Jul-11 14:49:25.535850 27 |
+2026-Jul-11 14:49:25.535850 28 |     # build phase
+2026-Jul-11 14:49:25.535850 --------------------
+2026-Jul-11 14:49:25.535850 ERROR: failed to build: failed to solve: process "/bin/bash -ol pipefail -c npm install" did not complete successfully: exit code: 1
+2026-Jul-11 14:49:25.535850 exit status 1
+2026-Jul-11 14:49:25.604947 [DEBUG] Error type: App\Exceptions\DeploymentException
+2026-Jul-11 14:49:25.684892 [DEBUG] Error code: 0
+2026-Jul-11 14:49:25.782086 [DEBUG] Location: /var/www/html/app/Traits/ExecuteRemoteCommand.php:242
+2026-Jul-11 14:49:25.935358 [DEBUG] Stack trace (first 5 lines):
+2026-Jul-11 14:49:26.178548 [DEBUG] #0 /var/www/html/app/Traits/ExecuteRemoteCommand.php(106): App\Jobs\ApplicationDeploymentJob->executeCommandWithProcess()
+2026-Jul-11 14:49:26.821921 [DEBUG] #1 /var/www/html/vendor/laravel/framework/src/Illuminate/Collections/Traits/EnumeratesValues.php(275): App\Jobs\ApplicationDeploymentJob->{closure:App\Traits\ExecuteRemoteCommand::execute_remote_command():72}()
+2026-Jul-11 14:49:27.008067 [DEBUG] #2 /var/www/html/app/Traits/ExecuteRemoteCommand.php(72): Illuminate\Support\Collection->each()
+2026-Jul-11 14:49:27.258031 [DEBUG] #3 /var/www/html/app/Jobs/ApplicationDeploymentJob.php(3778): App\Jobs\ApplicationDeploymentJob->execute_remote_command()
+2026-Jul-11 14:49:27.496463 [DEBUG] #4 /var/www/html/app/Jobs/ApplicationDeploymentJob.php(946): App\Jobs\ApplicationDeploymentJob->build_image()
+2026-Jul-11 14:49:27.664909 ========================================
+2026-Jul-11 14:49:27.809117 Deployment failed. Removing the new version of your application.
+2026-Jul-11 14:49:31.339261 Gracefully shutting down build container: t7ruavo5io0z8i3ahdkrh23v
+2026-Jul-11 14:49:31.767109 [DEBUG] [CMD]: docker stop --time=30 t7ruavo5io0z8i3ahdkrh23v
+2026-Jul-11 14:49:31.767109 [DEBUG] Flag --time has been deprecated, use --timeout instead
+2026-Jul-11 14:49:36.692057 [DEBUG] t7ruavo5io0z8i3ahdkrh23v

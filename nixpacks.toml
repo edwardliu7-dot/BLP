@@ -1,0 +1,2 @@
+[phases.install]
+cmds = ["npm ci --no-audit --no-fund --prefer-offline"]
