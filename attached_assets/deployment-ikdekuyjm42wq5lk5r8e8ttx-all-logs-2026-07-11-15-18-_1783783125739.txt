@@ -1,0 +1,208 @@
+2026-Jul-11 15:05:03.970509 Docker 29.6.1 with BuildKit and Buildx detected on deployment server (localhost).
+2026-Jul-11 15:05:05.051344 Starting deployment of edwardliu7-dot/BLP:main to localhost.
+2026-Jul-11 15:05:05.852190 Preparing container with helper image: docker.io/coollabsio/coolify-helper:1.0.14
+2026-Jul-11 15:05:06.518503 [DEBUG] [CMD]: docker stop --time=30 ikdekuyjm42wq5lk5r8e8ttx
+2026-Jul-11 15:05:06.518503 [DEBUG] Flag --time has been deprecated, use --timeout instead
+2026-Jul-11 15:05:06.594658 [DEBUG] Error response from daemon: No such container: ikdekuyjm42wq5lk5r8e8ttx
+2026-Jul-11 15:05:11.812541 [DEBUG] [CMD]: docker run -d --network 'coolify' --name ikdekuyjm42wq5lk5r8e8ttx  --rm -v /root/.docker/buildx:/root/.docker/buildx -v /var/run/docker.sock:/var/run/docker.sock docker.io/coollabsio/coolify-helper:1.0.14
+2026-Jul-11 15:05:11.812541 [DEBUG] 95e1ef35e62d645322f305d127bddf84e45e0f66a31492c4fbb84cba47e7dd4a
+2026-Jul-11 15:05:23.335320 [DEBUG] [CMD]: docker exec ikdekuyjm42wq5lk5r8e8ttx bash -c 'GIT_SSH_COMMAND="ssh -o ConnectTimeout=30 -p 22 -o Port=22 -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" git ls-remote '\''https://x-access-token:<REDACTED>@github.com/edwardliu7-dot/BLP.git'\'' '\''refs/heads/main'\'''
+2026-Jul-11 15:05:23.335320 [DEBUG] cafd9dc7546e86849edb33ae32cb20ba2faade50	refs/heads/main
+2026-Jul-11 15:05:23.991891 Image not found (nswzqjz1jnr821kuh3s9aji1:cafd9dc7546e86849edb33ae32cb20ba2faade50). Building new image.
+2026-Jul-11 15:05:24.575531 ----------------------------------------
+2026-Jul-11 15:05:25.251583 Importing edwardliu7-dot/BLP:main (commit sha cafd9dc7546e86849edb33ae32cb20ba2faade50) to /artifacts/ikdekuyjm42wq5lk5r8e8ttx.
+2026-Jul-11 15:05:26.107296 [DEBUG] [CMD]: docker exec ikdekuyjm42wq5lk5r8e8ttx bash -c 'git -c '\''url.https://x-access-token:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 clone --depth=1 --recurse-submodules --shallow-submodules -b '\''main'\'' '\''https:<REDACTED>@github.com/edwardliu7-dot/BLP.git'\'' '\''/artifacts/ikdekuyjm42wq5lk5r8e8ttx'\'' && cd '\''/artifacts/ikdekuyjm42wq5lk5r8e8ttx'\'' && GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" git -c '\''url.https://x-access-token:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 fetch --depth=1 origin '\''cafd9dc7546e86849edb33ae32cb20ba2faade50'\'' && git -c '\''url.https:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 -c advice.detachedHead=false checkout '\''cafd9dc7546e86849edb33ae32cb20ba2faade50'\'' >/dev/null 2>&1 && cd '\''/artifacts/ikdekuyjm42wq5lk5r8e8ttx'\'' && if [ -f .gitmodules ]; then git -c '\''url.https:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 submodule sync && GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" git -c '\''url.https:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 submodule update --init --recursive --depth=1; fi && cd '\''/artifacts/ikdekuyjm42wq5lk5r8e8ttx'\'' && GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" git -c '\''url.https:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 lfs pull'
+2026-Jul-11 15:<REDACTED>@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+2026-Jul-11 15:06:07.999296 [DEBUG] #4 resolve ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de 0.7s done
+2026-Jul-11 15:06:07.999296 [DEBUG] #4 DONE 0.8s
+2026-Jul-11 15:06:07.999296 [DEBUG] 
+2026-Jul-11 15:06:07.999296 [DEBUG] #5 [stage-0  2/11] WORKDIR /app/
+2026-Jul-11 15:06:07.999296 [DEBUG] #5 CACHED
+2026-Jul-11 15:06:07.999296 [DEBUG] 
+2026-Jul-11 15:06:07.999296 [DEBUG] #6 [internal] load build context
+2026-Jul-11 15:06:07.999296 [DEBUG] #6 DONE 0.0s
+2026-Jul-11 15:06:08.154982 [DEBUG] #6 [internal] load build context
+2026-Jul-11 15:06:08.979040 [DEBUG] #6 transferring context: 1.46MB 0.1s done
+2026-Jul-11 15:06:09.608799 [DEBUG] #6 DONE 1.6s
+2026-Jul-11 15:06:09.777372 [DEBUG] #7 [stage-0  3/16] COPY .nixpacks/nixpkgs-ba913eda2df8eb72147259189d55932012df6301.nix .nixpacks/nixpkgs-ba913eda2df8eb72147259189d55932012df6301.nix
+2026-Jul-11 15:06:09.777372 [DEBUG] #7 CACHED
+2026-Jul-11 15:06:09.777372 [DEBUG] 
+2026-Jul-11 15:06:09.777372 [DEBUG] #8 [stage-0  4/16] RUN nix-env -if .nixpacks/nixpkgs-ba913eda2df8eb72147259189d55932012df6301.nix && nix-collect-garbage -d
+2026-Jul-11 15:06:20.079147 [DEBUG] #8 10.30 unpacking 'https://github.com/NixOS/nixpkgs/archive/ba913eda2df8eb72147259189d55932012df6301.tar.gz' into the Git cache...
+2026-Jul-11 15:<REDACTED>@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+2026-Jul-11 15:14:20.101081 #4 resolve ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de 0.7s done
+2026-Jul-11 15:14:20.101081 #4 DONE 0.8s
+2026-Jul-11 15:14:20.101081 
+2026-Jul-11 15:14:20.101081 #5 [stage-0  2/11] WORKDIR /app/
+2026-Jul-11 15:14:20.101081 #5 CACHED
+2026-Jul-11 15:14:20.101081 
+2026-Jul-11 15:14:20.101081 #6 [internal] load build context
+2026-Jul-11 15:14:20.101081 #6 DONE 0.0s
+2026-Jul-11 15:14:20.101081 
+2026-Jul-11 15:14:20.101081 #6 [internal] load build context
+2026-Jul-11 15:14:20.101081 #6 transferring context: 1.46MB 0.1s done
+2026-Jul-11 15:14:20.101081 #6 DONE 1.6s
+2026-Jul-11 15:14:20.101081 
+2026-Jul-11 15:14:20.101081 #7 [stage-0  3/16] COPY .nixpacks/nixpkgs-ba913eda2df8eb72147259189d55932012df6301.nix .nixpacks/nixpkgs-ba913eda2df8eb72147259189d55932012df6301.nix
+2026-Jul-11 15:14:20.101081 #7 CACHED
+2026-Jul-11 15:14:20.101081 
+2026-Jul-11 15:14:20.101081 #8 [stage-0  4/16] RUN nix-env -if .nixpacks/nixpkgs-ba913eda2df8eb72147259189d55932012df6301.nix && nix-collect-garbage -d
+2026-Jul-11 15:14:20.101081 #8 10.30 unpacking 'https://github.com/NixOS/nixpkgs/archive/ba913eda2df8eb72147259189d55932012df6301.tar.gz' into the Git cache...
+2026-Jul-11 15:14:20.101081 #8 319.9 installing 'ba913eda2df8eb72147259189d55932012df6301-env'
+2026-Jul-11 15:14:20.101081 #8 324.9 these 3 derivations will be built:
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/x9qrr2jb0d9d7gjg77imaric1nr9wl3s-libraries.drv
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/4vjgp6bh2gja20gkg167x66kgk10c24j-ba913eda2df8eb72147259189d55932012df6301-env.drv
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/llvngay9gncvs8l6dw01c6wlbh35zzf0-ba913eda2df8eb72147259189d55932012df6301-env.drv
+2026-Jul-11 15:14:20.101081 #8 324.9 these 39 paths will be fetched (32.50 MiB download, 164.57 MiB unpacked):
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/mjgi65m3hgzqqvqcix848gskkw5zzwi9-acl-2.3.2
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/5nk2ga7i2f030am4qpcdsd8qlk6i3z83-attr-2.5.2
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/306znyj77fv49kwnkpxmb0j2znqpa8bj-bash-5.2p26
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/4vkw8ifh2naxmxl323vzq0scm0l36c1v-builder.pl
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/xwcf1rw3ackqp2vxms9myf9jq2ny6ynv-bzip2-1.0.8
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/mxcq77rlan82dzpv3cgj0fh6qvv8ncil-bzip2-1.0.8-bin
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/1iz89fy5fi998g43z1m4j7s5f095di68-caddy-2.8.4
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/php4qidg2bxzmm79vpri025bqi0fa889-coreutils-9.5
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/i34mknsjgrfyy71k2h79gda0bvagzc2j-diffutils-3.10
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/1sffjkg6c6ff16fz5yr0pnz3j7vja42h-ed-1.20.2
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/xx7x1dwybpssfhq8yikvzz38bh3yrq97-file-5.45
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/jjcsr5gs4qanf7ln5c6wgcq4sn75a978-findutils-4.9.0
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/8vvkbgmnin1x2jkp7wcb2zg1p0vc4ks9-gawk-5.2.2
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/xvzz97yk73hw03v5dhhz3j47ggwf1yq1-gcc-13.2.0-lib
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/0rxb3ixzk4zaqivc9s795m0a3679wbw2-gcc-13.2.0-libgcc
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/k7zgvzp2r31zkg9xqgjim7mbknryv6bs-glibc-2.39-52
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/7ivacs3m2fm19hyxdmrs05xisj82v6y5-gmp-with-cxx-6.3.0
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/4i0j14zymvlngyyhq2254f4g9m9my98y-gnu-config-2024-01-01
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/28gpmx3z6ss3znd7fhmrzmvk3x5lnfbk-gnugrep-3.11
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/cdzpn0rdq810aknww3w9fy3wmw9ixr66-gnumake-4.4.1
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/5zjms21vpxlkbc0qyl5pmj2sidfmzmd7-gnused-4.9
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/rik7p68cq7yzlj5pmfpf4yv6jnrpvlgf-gnutar-1.35
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/j5chw7v1x3vlmf3wmdpdb5gwh9hl0b80-gzip-1.13
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/dzsby2vk02jcn0s43fkna2qqqix6ccy1-iana-etc-20240318
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/ic63ay0py10fyryaw7345k4ps32da33w-libidn2-2.3.7
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/yfp7dr8m7zi7kxk49wd714gwvhb105hf-libunistring-1.1
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/5xynf9c9ml7d97q70kpq9rpqqmx13xl8-libxcrypt-4.4.36
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/zk9ybjjixdwyv3jmpg2i7s8p7iqi5vhh-mailcap-2.1.53
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/0lfxbmchigx9vs9qmrlbahcy6nxwfnj1-patch-2.7.6
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/nbad47q0m0m9c5xid7zh05hiknwircbp-patchelf-0.15.0
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/g3vi60zgyjsvij7xkk6dxky1hkwh0ynd-pcre2-10.43
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/1iscdpbd3x9x3s3s25jd5ppl7yra0b77-perl-5.38.2
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/rg6agzlb4gcl4w2126m16qm4mgr8jgi6-stdenv-linux
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/y6hmqbmbwq0rmx1fzix5c5jszla2pzmp-tzdata-2024a
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/bq6xbl9cq6hkcn65mz2fzc2k38xiv87h-update-autotools-gnu-config-scripts-hook
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/1q9vc0lq7qjlfjz47mfmlzdf86c543jy-xgcc-13.2.0-libgcc
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/lphbn1va4i43fj7f3m9xskf9y86khzf3-xz-5.4.6
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/6i4xxaa812vsbli9jkq4mksdddrk27lw-xz-5.4.6-bin
+2026-Jul-11 15:14:20.101081 #8 324.9   /nix/store/lv6nackqis28gg7l2ic43f6nk52hb39g-zlib-1.3.1
+2026-Jul-11 15:14:20.101081 #8 324.9 copying path '/nix/store/4vkw8ifh2naxmxl323vzq0scm0l36c1v-builder.pl' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 324.9 copying path '/nix/store/dzsby2vk02jcn0s43fkna2qqqix6ccy1-iana-etc-20240318' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 324.9 copying path '/nix/store/zk9ybjjixdwyv3jmpg2i7s8p7iqi5vhh-mailcap-2.1.53' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 324.9 copying path '/nix/store/y6hmqbmbwq0rmx1fzix5c5jszla2pzmp-tzdata-2024a' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 324.9 copying path '/nix/store/4i0j14zymvlngyyhq2254f4g9m9my98y-gnu-config-2024-01-01' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 325.0 copying path '/nix/store/1q9vc0lq7qjlfjz47mfmlzdf86c543jy-xgcc-13.2.0-libgcc' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 325.0 copying path '/nix/store/0rxb3ixzk4zaqivc9s795m0a3679wbw2-gcc-13.2.0-libgcc' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 325.0 copying path '/nix/store/yfp7dr8m7zi7kxk49wd714gwvhb105hf-libunistring-1.1' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 325.0 copying path '/nix/store/bq6xbl9cq6hkcn65mz2fzc2k38xiv87h-update-autotools-gnu-config-scripts-hook' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 325.4 copying path '/nix/store/ic63ay0py10fyryaw7345k4ps32da33w-libidn2-2.3.7' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 325.5 copying path '/nix/store/k7zgvzp2r31zkg9xqgjim7mbknryv6bs-glibc-2.39-52' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.5 copying path '/nix/store/306znyj77fv49kwnkpxmb0j2znqpa8bj-bash-5.2p26' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.5 copying path '/nix/store/5nk2ga7i2f030am4qpcdsd8qlk6i3z83-attr-2.5.2' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.5 copying path '/nix/store/xwcf1rw3ackqp2vxms9myf9jq2ny6ynv-bzip2-1.0.8' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.5 copying path '/nix/store/1iz89fy5fi998g43z1m4j7s5f095di68-caddy-2.8.4' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.5 copying path '/nix/store/1sffjkg6c6ff16fz5yr0pnz3j7vja42h-ed-1.20.2' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.5 copying path '/nix/store/8vvkbgmnin1x2jkp7wcb2zg1p0vc4ks9-gawk-5.2.2' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.5 copying path '/nix/store/xvzz97yk73hw03v5dhhz3j47ggwf1yq1-gcc-13.2.0-lib' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.5 copying path '/nix/store/cdzpn0rdq810aknww3w9fy3wmw9ixr66-gnumake-4.4.1' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.6 copying path '/nix/store/5zjms21vpxlkbc0qyl5pmj2sidfmzmd7-gnused-4.9' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.6 copying path '/nix/store/5xynf9c9ml7d97q70kpq9rpqqmx13xl8-libxcrypt-4.4.36' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.6 copying path '/nix/store/g3vi60zgyjsvij7xkk6dxky1hkwh0ynd-pcre2-10.43' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.6 copying path '/nix/store/lphbn1va4i43fj7f3m9xskf9y86khzf3-xz-5.4.6' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.6 copying path '/nix/store/lv6nackqis28gg7l2ic43f6nk52hb39g-zlib-1.3.1' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.7 copying path '/nix/store/mxcq77rlan82dzpv3cgj0fh6qvv8ncil-bzip2-1.0.8-bin' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.7 copying path '/nix/store/0lfxbmchigx9vs9qmrlbahcy6nxwfnj1-patch-2.7.6' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.7 copying path '/nix/store/mjgi65m3hgzqqvqcix848gskkw5zzwi9-acl-2.3.2' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.8 copying path '/nix/store/xx7x1dwybpssfhq8yikvzz38bh3yrq97-file-5.45' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 327.9 copying path '/nix/store/j5chw7v1x3vlmf3wmdpdb5gwh9hl0b80-gzip-1.13' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 330.2 copying path '/nix/store/rik7p68cq7yzlj5pmfpf4yv6jnrpvlgf-gnutar-1.35' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 331.8 copying path '/nix/store/6i4xxaa812vsbli9jkq4mksdddrk27lw-xz-5.4.6-bin' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 331.8 copying path '/nix/store/28gpmx3z6ss3znd7fhmrzmvk3x5lnfbk-gnugrep-3.11' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 332.1 copying path '/nix/store/7ivacs3m2fm19hyxdmrs05xisj82v6y5-gmp-with-cxx-6.3.0' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 332.1 copying path '/nix/store/nbad47q0m0m9c5xid7zh05hiknwircbp-patchelf-0.15.0' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 332.1 copying path '/nix/store/php4qidg2bxzmm79vpri025bqi0fa889-coreutils-9.5' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 332.3 copying path '/nix/store/i34mknsjgrfyy71k2h79gda0bvagzc2j-diffutils-3.10' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 332.3 copying path '/nix/store/jjcsr5gs4qanf7ln5c6wgcq4sn75a978-findutils-4.9.0' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 332.3 copying path '/nix/store/1iscdpbd3x9x3s3s25jd5ppl7yra0b77-perl-5.38.2' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 332.6 copying path '/nix/store/rg6agzlb4gcl4w2126m16qm4mgr8jgi6-stdenv-linux' from 'https://cache.nixos.org'...
+2026-Jul-11 15:14:20.101081 #8 336.7 building '/nix/store/x9qrr2jb0d9d7gjg77imaric1nr9wl3s-libraries.drv'...
+2026-Jul-11 15:14:20.101081 #8 337.6 building '/nix/store/4vjgp6bh2gja20gkg167x66kgk10c24j-ba913eda2df8eb72147259189d55932012df6301-env.drv'...
+2026-Jul-11 15:14:20.101081 #8 337.9 building '/nix/store/llvngay9gncvs8l6dw01c6wlbh35zzf0-ba913eda2df8eb72147259189d55932012df6301-env.drv'...
+2026-Jul-11 15:14:20.101081 #8 339.6 created 4 symlinks in user environment
+2026-Jul-11 15:14:20.101081 #8 340.2 building '/nix/store/5q154c0kqyja8hjj5iqvrflg2znnawb0-user-environment.drv'...
+2026-Jul-11 15:14:20.101081 #8 344.4 removing old generations of profile /nix/var/nix/profiles/per-user/root/profile
+2026-Jul-11 15:14:20.101081 #8 344.4 removing profile version 1
+2026-Jul-11 15:14:20.101081 #8 344.4 removing old generations of profile /nix/var/nix/profiles/per-user/root/channels
+2026-Jul-11 15:14:20.101081 #8 344.4 removing old generations of profile /nix/var/nix/profiles/per-user/root/profile
+2026-Jul-11 15:14:20.101081 #8 344.4 removing old generations of profile /nix/var/nix/profiles/per-user/root/channels
+2026-Jul-11 15:14:20.101081 #8 344.5 finding garbage collector roots...
+2026-Jul-11 15:14:20.101081 #8 344.6 removing stale link from '/nix/var/nix/gcroots/auto/lzjbmb2ry0z7lma2fvpqprb12921pnb5' to '/nix/var/nix/profiles/per-user/root/profile-1-link'
+2026-Jul-11 15:14:20.101081 #8 344.6 deleting garbage...
+2026-Jul-11 15:14:20.101081 #8 345.2 deleting '/nix/store/a9qf4wwhympzs35ncp80r185j6a21w07-user-environment'
+2026-Jul-11 15:14:20.101081 #8 345.4 deleting '/nix/store/253kwn1730vnay87xkjgxa2v97w3y079-user-environment.drv'
+2026-Jul-11 15:14:20.101081 #8 345.4 deleting '/nix/store/hn5mrh362n52x8wwab9s1v6bgn4n5c94-env-manifest.nix'
+2026-Jul-11 15:14:20.101081 #8 345.5 deleting '/nix/store/rg6agzlb4gcl4w2126m16qm4mgr8jgi6-stdenv-linux'
+2026-Jul-11 15:14:20.101081 #8 345.5 deleting '/nix/store/j5chw7v1x3vlmf3wmdpdb5gwh9hl0b80-gzip-1.13'
+2026-Jul-11 15:14:20.101081 #8 345.5 deleting '/nix/store/8vvkbgmnin1x2jkp7wcb2zg1p0vc4ks9-gawk-5.2.2'
+2026-Jul-11 15:14:20.101081 #8 345.6 deleting '/nix/store/4vkw8ifh2naxmxl323vzq0scm0l36c1v-builder.pl'
+2026-Jul-11 15:14:20.101081 #8 345.6 deleting '/nix/store/cdzpn0rdq810aknww3w9fy3wmw9ixr66-gnumake-4.4.1'
+2026-Jul-11 15:14:20.101081 #8 345.6 deleting '/nix/store/rik7p68cq7yzlj5pmfpf4yv6jnrpvlgf-gnutar-1.35'
+2026-Jul-11 15:14:20.101081 #8 345.6 deleting '/nix/store/jjcsr5gs4qanf7ln5c6wgcq4sn75a978-findutils-4.9.0'
+2026-Jul-11 15:14:20.101081 #8 345.6 deleting '/nix/store/i34mknsjgrfyy71k2h79gda0bvagzc2j-diffutils-3.10'
+2026-Jul-11 15:14:20.101081 #8 345.6 deleting '/nix/store/1iscdpbd3x9x3s3s25jd5ppl7yra0b77-perl-5.38.2'
+2026-Jul-11 15:14:20.101081 #8 345.9 deleting '/nix/store/php4qidg2bxzmm79vpri025bqi0fa889-coreutils-9.5'
+2026-Jul-11 15:14:20.101081 #8 345.9 deleting '/nix/store/mjgi65m3hgzqqvqcix848gskkw5zzwi9-acl-2.3.2'
+2026-Jul-11 15:14:20.101081 #8 345.9 deleting '/nix/store/0lfxbmchigx9vs9qmrlbahcy6nxwfnj1-patch-2.7.6'
+2026-Jul-11 15:14:20.101081 #8 345.9 deleting '/nix/store/1sffjkg6c6ff16fz5yr0pnz3j7vja42h-ed-1.20.2'
+2026-Jul-11 15:14:20.101081 #8 345.9 deleting '/nix/store/5xynf9c9ml7d97q70kpq9rpqqmx13xl8-libxcrypt-4.4.36'
+2026-Jul-11 15:14:20.101081 #8 345.9 deleting '/nix/store/xx7x1dwybpssfhq8yikvzz38bh3yrq97-file-5.45'
+2026-Jul-11 15:14:20.101081 #8 345.9 deleting '/nix/store/lv6nackqis28gg7l2ic43f6nk52hb39g-zlib-1.3.1'
+2026-Jul-11 15:14:20.101081 #8 345.9 deleting '/nix/store/bq6xbl9cq6hkcn65mz2fzc2k38xiv87h-update-autotools-gnu-config-scripts-hook'
+2026-Jul-11 15:14:20.101081 #8 345.9 deleting '/nix/store/nbad47q0m0m9c5xid7zh05hiknwircbp-patchelf-0.15.0'
+2026-Jul-11 15:14:20.101081 #8 345.9 deleting '/nix/store/7ivacs3m2fm19hyxdmrs05xisj82v6y5-gmp-with-cxx-6.3.0'
+2026-Jul-11 15:14:20.101081 #8 345.9 deleting '/nix/store/xvzz97yk73hw03v5dhhz3j47ggwf1yq1-gcc-13.2.0-lib'
+2026-Jul-11 15:14:20.101081 #8 345.9 deleting '/nix/store/6i4xxaa812vsbli9jkq4mksdddrk27lw-xz-5.4.6-bin'
+2026-Jul-11 15:14:20.101081 #8 345.9 deleting '/nix/store/lphbn1va4i43fj7f3m9xskf9y86khzf3-xz-5.4.6'
+2026-Jul-11 15:14:20.101081 #8 345.9 deleting '/nix/store/jdxlsyfxs63rxxhrzgc3mnhx0mz6s595-libraries'
+2026-Jul-11 15:14:20.101081 #8 345.9 deleting '/nix/store/mxcq77rlan82dzpv3cgj0fh6qvv8ncil-bzip2-1.0.8-bin'
+2026-Jul-11 15:14:20.101081 #8 345.9 deleting '/nix/store/xwcf1rw3ackqp2vxms9myf9jq2ny6ynv-bzip2-1.0.8'
+2026-Jul-11 15:14:20.101081 #8 345.9 deleting '/nix/store/p5l041qdj83dg93parxblr0q0al3hhsc-source'
+2026-Jul-11 15:14:20.101081 #8 424.4 deleting '/nix/store/28gpmx3z6ss3znd7fhmrzmvk3x5lnfbk-gnugrep-3.11'
+2026-Jul-11 15:14:20.101081 #8 424.4 deleting '/nix/store/g3vi60zgyjsvij7xkk6dxky1hkwh0ynd-pcre2-10.43'
+2026-Jul-11 15:14:20.101081 #8 424.4 deleting '/nix/store/0rxb3ixzk4zaqivc9s795m0a3679wbw2-gcc-13.2.0-libgcc'
+2026-Jul-11 15:14:20.101081 #8 424.5 deleting '/nix/store/4i0j14zymvlngyyhq2254f4g9m9my98y-gnu-config-2024-01-01'
+2026-Jul-11 15:14:20.101081 #8 424.5 deleting '/nix/store/5nk2ga7i2f030am4qpcdsd8qlk6i3z83-attr-2.5.2'
+2026-Jul-11 15:14:20.101081 #8 424.5 deleting '/nix/store/306znyj77fv49kwnkpxmb0j2znqpa8bj-bash-5.2p26'
+2026-Jul-11 15:14:20.101081 #8 424.5 deleting '/nix/store/5zjms21vpxlkbc0qyl5pmj2sidfmzmd7-gnused-4.9'
+2026-Jul-11 15:14:20.101081 #8 424.5 deleting unused links...
+2026-Jul-11 15:14:20.101081 #8 433.1 note: currently hard linking saves -3.11 MiB
+2026-Jul-11 15:14:20.101081 #8 433.3 36 store paths deleted, 243.63 MiB freed
+2026-Jul-11 15:14:20.101081 #8 DONE 434.6s
+2026-Jul-11 15:14:20.101081 
+2026-Jul-11 15:14:20.101081 #9 [stage-0  5/16] COPY .nixpacks/nixpkgs-ffeebf0acf3ae8b29f8c7049cd911b9636efd7e7.nix .nixpacks/nixpkgs-ffeebf0acf3ae8b29f8c7049cd911b9636efd7e7.nix
+2026-Jul-11 15:14:20.101081 #9 DONE 1.5s
+2026-Jul-11 15:14:20.101081 
+2026-Jul-11 15:14:20.101081 #10 [stage-0  6/16] RUN nix-env -if .nixpacks/nixpkgs-ffeebf0acf3ae8b29f8c7049cd911b9636efd7e7.nix && nix-collect-garbage -d
+2026-Jul-11 15:14:20.101081 #10 1.688 unpacking 'https://github.com/NixOS/nixpkgs/archive/ffeebf0acf3ae8b29f8c7049cd911b9636efd7e7.tar.gz' into the Git cache...
+2026-Jul-11 15:14:20.171467 [DEBUG] Error type: App\Exceptions\DeploymentException
+2026-Jul-11 15:14:20.224227 [DEBUG] Error code: 0
+2026-Jul-11 15:14:20.283907 [DEBUG] Location: /var/www/html/app/Traits/ExecuteRemoteCommand.php:242
+2026-Jul-11 15:14:20.331903 [DEBUG] Stack trace (first 5 lines):
+2026-Jul-11 15:14:20.395445 [DEBUG] #0 /var/www/html/app/Traits/ExecuteRemoteCommand.php(106): App\Jobs\ApplicationDeploymentJob->executeCommandWithProcess()
+2026-Jul-11 15:14:20.443952 [DEBUG] #1 /var/www/html/vendor/laravel/framework/src/Illuminate/Collections/Traits/EnumeratesValues.php(275): App\Jobs\ApplicationDeploymentJob->{closure:App\Traits\ExecuteRemoteCommand::execute_remote_command():72}()
+2026-Jul-11 15:14:20.486679 [DEBUG] #2 /var/www/html/app/Traits/ExecuteRemoteCommand.php(72): Illuminate\Support\Collection->each()
+2026-Jul-11 15:14:20.580698 [DEBUG] #3 /var/www/html/app/Jobs/ApplicationDeploymentJob.php(3778): App\Jobs\ApplicationDeploymentJob->execute_remote_command()
+2026-Jul-11 15:14:20.651024 [DEBUG] #4 /var/www/html/app/Jobs/ApplicationDeploymentJob.php(946): App\Jobs\ApplicationDeploymentJob->build_image()
+2026-Jul-11 15:14:21.601287 ========================================
+2026-Jul-11 15:14:21.748194 Deployment failed. Removing the new version of your application.
+2026-Jul-11 15:14:26.632512 Gracefully shutting down build container: ikdekuyjm42wq5lk5r8e8ttx
+2026-Jul-11 15:14:27.444919 [DEBUG] [CMD]: docker stop --time=30 ikdekuyjm42wq5lk5r8e8ttx
+2026-Jul-11 15:14:27.444919 [DEBUG] Flag --time has been deprecated, use --timeout instead
+2026-Jul-11 15:14:33.349252 [DEBUG] ikdekuyjm42wq5lk5r8e8ttx
