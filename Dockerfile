@@ -1,5 +1,11 @@
 FROM node:20-slim
 
+# Coolify's healthcheck runs curl/wget inside the container; node:20-slim
+# doesn't include either by default, which makes Coolify think a perfectly
+# running app is unhealthy and roll the deployment back.
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 COPY package*.json .npmrc ./
@@ -17,5 +23,8 @@ RUN npm run build
 
 ENV NODE_ENV=production
 EXPOSE 5000
+
+HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=5 \
+    CMD curl -f http://localhost:5000/ || exit 1
 
 CMD ["npm", "run", "start"]
