@@ -5,6 +5,19 @@
 
 import { Category } from '../types';
 
+export interface ChecklistItem {
+  id: string;
+  label: string;
+}
+
+export const PERLENGKAPAN_SEKOLAH_ITEMS: ChecklistItem[] = [
+  { id: 'buku_paket', label: 'Buku Paket' },
+  { id: 'alat_tulis', label: 'Alat Tulis' },
+  { id: 'buku_tulis', label: 'Buku Tulis' },
+  { id: 'seragam', label: 'Seragam' },
+  { id: 'botol_minum', label: 'Botol Minum' },
+];
+
 export const BLP_CATEGORIES: Category[] = [
   {
     id: 'devout',

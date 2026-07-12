@@ -43,6 +43,21 @@ function toId(username: string) {
   return normalizeUsername(username).toLowerCase().replace(/\s+/g, '-');
 }
 
+// School operates on Indonesian (WIB/Jakarta) time regardless of the
+// server's own timezone, so "today" for BLP purposes must be computed in
+// Asia/Jakarta rather than the server's local/UTC clock.
+const JAKARTA_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Jakarta',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+function getJakartaTodayDateString(): string {
+  // en-CA formats as YYYY-MM-DD
+  return JAKARTA_DATE_FORMATTER.format(new Date());
+}
+
 const BCRYPT_HASH_RE = /^\$2[aby]\$/;
 
 // This database is shared with other apps (e.g. "tomat") that write plaintext
@@ -243,6 +258,9 @@ app.put('/api/students/:id/records/:date', requireAuth('siswa', 'id'), async (re
   try {
     const { id, date } = req.params;
     const { completedActivities, score, submissions } = req.body || {};
+    if (date !== getJakartaTodayDateString()) {
+      return res.status(403).json({ error: 'BLP hanya bisa diisi untuk hari ini. Tanggal yang sudah lewat atau belum tiba tidak dapat diubah.' });
+    }
     const student = await pool.query('SELECT id FROM students WHERE id = $1', [id]);
     if (student.rowCount === 0) {
       return res.status(404).json({ error: 'Siswa tidak ditemukan' });

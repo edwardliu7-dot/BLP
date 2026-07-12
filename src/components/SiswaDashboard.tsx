@@ -19,6 +19,8 @@ import {
   LogOut,
   Mic,
   PenLine,
+  ListChecks,
+  Lock,
   FileDown
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, addMonths, subMonths, startOfDay } from 'date-fns';
@@ -26,9 +28,10 @@ import { id as localeId } from 'date-fns/locale';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-import { BLP_CATEGORIES } from '../data/activities';
+import { BLP_CATEGORIES, PERLENGKAPAN_SEKOLAH_ITEMS } from '../data/activities';
 import { DailyRecord, UserProgress, ActivitySubmission } from '../types';
 import TextSubmissionModal from './modals/TextSubmissionModal';
+import ChecklistSubmissionModal from './modals/ChecklistSubmissionModal';
 import QuranReadingModal from './modals/QuranReadingModal';
 import ProfileModal from './modals/ProfileModal';
 import { downloadRekapPDF, downloadRekapExcel } from '../utils/rekapExport';
@@ -36,7 +39,18 @@ import { downloadRekapPDF, downloadRekapExcel } from '../utils/rekapExport';
 const QURAN_ACTIVITY_ID = 'd5';
 const BELAJAR_ACTIVITY_ID = 'rs1';
 const EVALUASI_ACTIVITY_ID = 'rf3';
-const RECIPROCITY_ACTIVITY_IDS = ['rp1', 'rp2', 'rp3', 'rp4'];
+const PERLENGKAPAN_ACTIVITY_ID = 'rp1';
+const RECIPROCITY_ACTIVITY_IDS = ['rp2', 'rp3', 'rp4'];
+
+function getChecklistConfig(activityId: string): { title: string; items: typeof PERLENGKAPAN_SEKOLAH_ITEMS } | null {
+  if (activityId === PERLENGKAPAN_ACTIVITY_ID) {
+    return {
+      title: 'Ceklis Perlengkapan Sekolah',
+      items: PERLENGKAPAN_SEKOLAH_ITEMS,
+    };
+  }
+  return null;
+}
 
 function getSubmissionConfig(activityId: string): { minChars?: number; placeholder: string; title: string } | null {
   if (activityId === BELAJAR_ACTIVITY_ID) {
@@ -93,6 +107,8 @@ export default function SiswaDashboard({
 
   const records = user.records;
   const dateKey = format(selectedDate, 'yyyy-MM-dd');
+  const todayKey = format(startOfDay(new Date()), 'yyyy-MM-dd');
+  const isEditableDay = dateKey === todayKey;
   const currentRecord = records[dateKey] || { date: dateKey, completedActivities: [] };
   const [activeModalActivityId, setActiveModalActivityId] = useState<string | null>(null);
 
@@ -113,9 +129,14 @@ export default function SiswaDashboard({
   };
 
   const toggleActivity = (activityId: string) => {
+    if (!isEditableDay) {
+      alert('BLP hanya bisa diisi untuk hari ini. Tanggal yang sudah lewat atau belum tiba tidak dapat diubah.');
+      return;
+    }
+
     const isDone = currentRecord.completedActivities.includes(activityId);
 
-    if (!isDone && (activityId === QURAN_ACTIVITY_ID || getSubmissionConfig(activityId))) {
+    if (!isDone && (activityId === QURAN_ACTIVITY_ID || getChecklistConfig(activityId) || getSubmissionConfig(activityId))) {
       setActiveModalActivityId(activityId);
       return;
     }
@@ -250,6 +271,12 @@ export default function SiswaDashboard({
                 Hari Ini
               </span>
             )}
+            {view === 'daily' && !isEditableDay && (
+              <span className="inline-flex items-center gap-1 text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                <Lock size={10} />
+                Terkunci · Hanya Lihat
+              </span>
+            )}
           </div>
 
           <button 
@@ -361,10 +388,11 @@ export default function SiswaDashboard({
                       return (
                         <motion.button
                           key={activity.id}
-                          whileTap={{ scale: 0.98 }}
+                          whileTap={isEditableDay ? { scale: 0.98 } : undefined}
                           onClick={() => toggleActivity(activity.id)}
                           className={cn(
                             "flex items-center gap-4 p-4 rounded-2xl border transition-all text-left",
+                            !isEditableDay && "opacity-60 cursor-not-allowed",
                             isDone 
                               ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 shadow-sm" 
                               : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700"
@@ -383,6 +411,7 @@ export default function SiswaDashboard({
                             )}>
                               {activity.name}
                               {activity.id === QURAN_ACTIVITY_ID && <Mic size={13} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />}
+                              {getChecklistConfig(activity.id) && <ListChecks size={13} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />}
                               {getSubmissionConfig(activity.id) && <PenLine size={13} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />}
                             </p>
                             <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-medium uppercase tracking-wider">
@@ -561,6 +590,23 @@ export default function SiswaDashboard({
             applySubmissionCompletion(QURAN_ACTIVITY_ID, {
               type: 'audio',
               content: audioDataUrl,
+              recordedAt: new Date().toISOString(),
+            });
+          }}
+        />
+      )}
+
+      {activeModalActivityId && activeModalActivityId !== QURAN_ACTIVITY_ID && getChecklistConfig(activeModalActivityId) && (
+        <ChecklistSubmissionModal
+          title={getChecklistConfig(activeModalActivityId)!.title}
+          activityName={BLP_CATEGORIES.flatMap(c => c.activities).find(a => a.id === activeModalActivityId)?.name || ''}
+          items={getChecklistConfig(activeModalActivityId)!.items}
+          initialValues={currentRecord.submissions?.[activeModalActivityId]?.items}
+          onClose={() => setActiveModalActivityId(null)}
+          onSubmit={(items) => {
+            applySubmissionCompletion(activeModalActivityId, {
+              type: 'checklist',
+              items,
               recordedAt: new Date().toISOString(),
             });
           }}

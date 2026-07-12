@@ -17,9 +17,10 @@ export interface Category {
 }
 
 export interface ActivitySubmission {
-  type: 'text' | 'audio';
+  type: 'text' | 'audio' | 'checklist';
   content?: string; // free text content, or base64 data URL for audio
   charCount?: number;
+  items?: Record<string, boolean>; // for checklist submissions: item id -> checked
   recordedAt: string; // ISO timestamp
 }
 
