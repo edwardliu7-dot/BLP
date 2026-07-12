@@ -1,0 +1,183 @@
+2026-Jul-12 11:02:57.797508 Docker 29.6.1 with BuildKit and Buildx detected on deployment server (localhost).
+2026-Jul-12 11:02:57.825450 Starting deployment of edwardliu7-dot/BLP:main to localhost.
+2026-Jul-12 11:02:58.355091 Preparing container with helper image: docker.io/coollabsio/coolify-helper:1.0.14
+2026-Jul-12 11:02:58.622926 [DEBUG] [CMD]: docker stop --time=30 ls16m7skshzwp2m58bkl4816
+2026-Jul-12 11:02:58.622926 [DEBUG] Flag --time has been deprecated, use --timeout instead
+2026-Jul-12 11:02:58.639634 [DEBUG] Error response from daemon: No such container: ls16m7skshzwp2m58bkl4816
+2026-Jul-12 11:03:00.300095 [DEBUG] [CMD]: docker run -d --network 'coolify' --name ls16m7skshzwp2m58bkl4816  --rm -v /root/.docker/buildx:/root/.docker/buildx -v /var/run/docker.sock:/var/run/docker.sock docker.io/coollabsio/coolify-helper:1.0.14
+2026-Jul-12 11:03:00.300095 [DEBUG] c5972df6734387c498e25faef1033ac18038768c0248d2f42ee588a9abb8f5c8
+2026-Jul-12 11:03:05.598402 [DEBUG] [CMD]: docker exec ls16m7skshzwp2m58bkl4816 bash -c 'GIT_SSH_COMMAND="ssh -o ConnectTimeout=30 -p 22 -o Port=22 -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" git ls-remote '\''https://x-access-token:<REDACTED>@github.com/edwardliu7-dot/BLP.git'\'' '\''refs/heads/main'\'''
+2026-Jul-12 11:03:05.598402 [DEBUG] c66a395e9b3ca5c6d7b8e1bb8021aa06d771c256	refs/heads/main
+2026-Jul-12 11:03:06.131564 ----------------------------------------
+2026-Jul-12 11:03:06.159390 Importing edwardliu7-dot/BLP:main (commit sha c66a395e9b3ca5c6d7b8e1bb8021aa06d771c256) to /artifacts/ls16m7skshzwp2m58bkl4816.
+2026-Jul-12 11:03:06.575790 [DEBUG] [CMD]: docker exec ls16m7skshzwp2m58bkl4816 bash -c 'git -c '\''url.https://x-access-token:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 clone --depth=1 --recurse-submodules --shallow-submodules -b '\''main'\'' '\''https:<REDACTED>@github.com/edwardliu7-dot/BLP.git'\'' '\''/artifacts/ls16m7skshzwp2m58bkl4816'\'' && cd '\''/artifacts/ls16m7skshzwp2m58bkl4816'\'' && GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" git -c '\''url.https://x-access-token:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 fetch --depth=1 origin '\''c66a395e9b3ca5c6d7b8e1bb8021aa06d771c256'\'' && git -c '\''url.https:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 -c advice.detachedHead=false checkout '\''c66a395e9b3ca5c6d7b8e1bb8021aa06d771c256'\'' >/dev/null 2>&1 && cd '\''/artifacts/ls16m7skshzwp2m58bkl4816'\'' && if [ -f .gitmodules ]; then git -c '\''url.https:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 submodule sync && GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" git -c '\''url.https:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 submodule update --init --recursive --depth=1; fi && cd '\''/artifacts/ls16m7skshzwp2m58bkl4816'\'' && GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" git -c '\''url.https:<REDACTED>@github.com/.insteadOf=https://github.com/'\'' -c http.version=HTTP/1.1 lfs pull'
+2026-Jul-12 11:<REDACTED>@11 \
+2026-Jul-12 11:03:12.628897 [DEBUG] && npm ci \
+2026-Jul-12 11:03:12.628897 [DEBUG] && test -x node_modules/.bin/vite || (echo "npm ci did not install dependencies correctly" && exit 1)
+2026-Jul-12 11:03:12.628897 [DEBUG] 
+2026-Jul-12 11:03:12.628897 [DEBUG] COPY . .
+2026-Jul-12 11:03:12.628897 [DEBUG] RUN npm run build
+2026-Jul-12 11:03:12.628897 [DEBUG] 
+2026-Jul-12 11:03:12.628897 [DEBUG] ENV NODE_ENV=production
+2026-Jul-12 11:03:12.628897 [DEBUG] EXPOSE 5000
+2026-Jul-12 11:03:12.628897 [DEBUG] 
+2026-Jul-12 11:03:12.628897 [DEBUG] CMD ["npm", "run", "start"]
+2026-Jul-12 11:03:13.117903 [DEBUG] Creating build-time .env file in /artifacts (outside Docker context).
+2026-Jul-12 11:03:13.574018 ----------------------------------------
+2026-Jul-12 11:03:13.602525 ⚠️ Build-time environment variable warning: NODE_ENV=production
+2026-Jul-12 11:03:13.647177 Affects: Node.js/npm/yarn/bun/pnpm
+2026-Jul-12 11:03:13.676726 Issue: Skips devDependencies installation which are often required for building (webpack, typescript, etc.)
+2026-Jul-12 11:03:13.708139 Recommendation: Uncheck "Available at Buildtime" or use "development" during build
+2026-Jul-12 11:03:13.740872 
+2026-Jul-12 11:03:13.775917 💡 Tips to resolve build issues:
+2026-Jul-12 11:03:13.814062 1. Set these variables as "Runtime only" in the environment variables settings
+2026-Jul-12 11:03:13.858145 2. Use different values for build-time (e.g., NODE_ENV=development for build)
+2026-Jul-12 11:03:13.893688 3. Consider using multi-stage Docker builds to separate build and runtime environments
+2026-Jul-12 11:03:14.241061 [DEBUG] [CMD]: docker exec ls16m7skshzwp2m58bkl4816 bash -c 'cat /artifacts/ls16m7skshzwp2m58bkl4816/Dockerfile'
+2026-Jul-12 11:03:14.241061 [DEBUG] FROM node:20-slim
+2026-Jul-12 11:03:14.241061 [DEBUG] 
+2026-Jul-12 11:03:14.241061 [DEBUG] WORKDIR /app
+2026-Jul-12 11:03:14.241061 [DEBUG] 
+2026-Jul-12 11:03:14.241061 [DEBUG] COPY package*.json .npmrc ./
+2026-Jul-12 11:03:14.241061 [DEBUG] # node:20-slim ships npm 10.8.2, which has a known bug ("Exit handler never
+2026-Jul-12 11:03:14.241061 [DEBUG] # called!") that can make `npm ci` silently exit 0 without finishing the
+2026-Jul-12 11:03:14.241061 [DEBUG] # install. Upgrade npm first, then verify the install actually produced a
+2026-Jul-12 11:03:14.241061 [DEBUG] # working node_modules before continuing, so failures are loud instead of
+2026-Jul-12 11:03:14.241061 [DEBUG] # surfacing later as a confusing "vite: not found" in the build step.
+2026-Jul-12 11:03:14.241061 [DEBUG] RUN npm install -g npm@11 \
+2026-Jul-12 11:03:14.241061 [DEBUG] && npm ci \
+2026-Jul-12 11:03:14.241061 [DEBUG] && test -x node_modules/.bin/vite || (echo "npm ci did not install dependencies correctly" && exit 1)
+2026-Jul-12 11:03:14.241061 [DEBUG] 
+2026-Jul-12 11:03:14.241061 [DEBUG] COPY . .
+2026-Jul-12 11:03:14.241061 [DEBUG] RUN npm run build
+2026-Jul-12 11:03:14.241061 [DEBUG] 
+2026-Jul-12 11:03:14.241061 [DEBUG] ENV NODE_ENV=production
+2026-Jul-12 11:03:14.241061 [DEBUG] EXPOSE 5000
+2026-Jul-12 11:03:14.241061 [DEBUG] 
+2026-Jul-12 11:03:14.241061 [DEBUG] CMD ["npm", "run", "start"]
+2026-Jul-12 11:03:14.354712 [DEBUG] Final Dockerfile:
+2026-Jul-12 11:03:15.099524 [DEBUG] [CMD]: docker exec ls16m7skshzwp2m58bkl4816 bash -c 'cat /artifacts/ls16m7skshzwp2m58bkl4816/Dockerfile'
+2026-Jul-12 11:03:15.099524 [DEBUG] FROM node:20-slim
+2026-Jul-12 11:03:15.099524 [DEBUG] ARG NODE_ENV=production
+2026-Jul-12 11:03:15.099524 [DEBUG] ARG BASE_PATH=/
+2026-Jul-12 11:03:15.099524 [DEBUG] ARG NEON_DATABASE_URL=postgres://postgres:<REDACTED>@157.10.161.229:5432/postgres
+2026-Jul-12 11:03:15.099524 [DEBUG] ARG PORT=5000
+2026-Jul-12 11:03:15.099524 [DEBUG] ARG SESSION_SECRET=NF5m47qOJkcAX8g/6CoSwXTwdEvtA28pM3mX4AIXd9RVPClNXw1loFf4Hxpo3ECiib268MwxawpVhmYckFyoZg==
+2026-Jul-12 11:03:15.099524 [DEBUG] ARG COOLIFY_URL=https://nswzqjz1jnr821kuh3s9aji1.157.10.161.229.sslip.io
+2026-Jul-12 11:<REDACTED>@11 \
+2026-Jul-12 11:03:15.099524 [DEBUG] && npm ci \
+2026-Jul-12 11:03:15.099524 [DEBUG] && test -x node_modules/.bin/vite || (echo "npm ci did not install dependencies correctly" && exit 1)
+2026-Jul-12 11:03:15.099524 [DEBUG] 
+2026-Jul-12 11:03:15.099524 [DEBUG] COPY . .
+2026-Jul-12 11:03:15.099524 [DEBUG] RUN npm run build
+2026-Jul-12 11:03:15.099524 [DEBUG] 
+2026-Jul-12 11:03:15.099524 [DEBUG] ENV NODE_ENV=production
+2026-Jul-12 11:03:15.099524 [DEBUG] EXPOSE 5000
+2026-Jul-12 11:03:15.099524 [DEBUG] 
+2026-Jul-12 11:03:15.099524 [DEBUG] CMD ["npm", "run", "start"]
+2026-Jul-12 11:03:15.142735 ----------------------------------------
+2026-Jul-12 11:03:15.196811 Building docker image started.
+2026-Jul-12 11:03:15.267741 To check the current progress, click on Show Debug Logs.
+2026-Jul-12 11:03:16.045907 [DEBUG] [CMD]: docker exec ls16m7skshzwp2m58bkl4816 bash -c 'cat /artifacts/build.sh'
+2026-Jul-12 11:03:16.045907 [DEBUG] cd /artifacts/ls16m7skshzwp2m58bkl4816 && set -a && source /artifacts/build-time.env && set +a && DOCKER_BUILDKIT=1 docker build  --add-host coolify:10.0.1.7 --add-host coolify-db:10.0.1.6 --add-host coolify-realtime:10.0.1.3 --add-host coolify-redis:10.0.1.2 --add-host llfsfaj7n7vzkp3n08i500fv:10.0.1.4 --add-host llfsfaj7n7vzkp3n08i500fv-proxy:10.0.1.9 --network host -f /artifacts/ls16m7skshzwp2m58bkl4816/Dockerfile --progress plain -t nswzqjz1jnr821kuh3s9aji1:c66a395e9b3ca5c6d7b8e1bb8021aa06d771c256 --build-arg COOLIFY_URL --build-arg COOLIFY_FQDN --build-arg COOLIFY_BRANCH --build-arg COOLIFY_RESOURCE_UUID --build-arg NODE_ENV --build-arg BASE_PATH --build-arg NEON_DATABASE_URL --build-arg PORT --build-arg SESSION_SECRET --build-arg COOLIFY_BUILD_SECRETS_HASH=3e9a963b1ce32a996cf94e3968bbd1e5ec901635f57be57351aba0af3702342d --build-arg 'COOLIFY_URL' --build-arg 'COOLIFY_FQDN' --build-arg 'COOLIFY_BRANCH' --build-arg 'COOLIFY_RESOURCE_UUID' /artifacts/ls16m7skshzwp2m58bkl4816
+2026-Jul-12 11:03:18.099575 [DEBUG] [CMD]: docker exec ls16m7skshzwp2m58bkl4816 bash -c 'bash /artifacts/build.sh'
+2026-Jul-12 11:03:18.099575 [DEBUG] #0 building with "default" instance using docker driver
+2026-Jul-12 11:03:18.099575 [DEBUG] 
+2026-Jul-12 11:03:18.099575 [DEBUG] #1 [internal] load build definition from Dockerfile
+2026-Jul-12 11:03:18.589193 [DEBUG] #1 transferring dockerfile:
+2026-Jul-12 11:03:18.759232 [DEBUG] #1 transferring dockerfile: 1.23kB 0.0s done
+2026-Jul-12 11:03:18.982764 [DEBUG] #1 DONE 1.0s
+2026-Jul-12 11:03:19.774511 [DEBUG] #2 [internal] load metadata for docker.io/library/node:20-slim
+2026-Jul-12 11:03:23.221940 [DEBUG] #2 DONE 3.4s
+2026-Jul-12 11:03:23.376739 [DEBUG] #3 [internal] load .dockerignore
+2026-Jul-12 11:03:23.955410 [DEBUG] #3 transferring context:
+2026-Jul-12 11:03:24.111697 [DEBUG] #3 transferring context: 105B 0.0s done
+2026-Jul-12 11:03:24.384411 [DEBUG] #3 DONE 1.2s
+2026-Jul-12 11:03:24.672157 [DEBUG] #4 [internal] load build context
+2026-Jul-12 11:03:24.672157 [DEBUG] #4 DONE 0.0s
+2026-Jul-12 11:03:24.672157 [DEBUG] 
+2026-Jul-12 11:03:24.672157 [DEBUG] #5 [1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-12 11:03:24.672157 [DEBUG] #5 resolve docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+2026-Jul-12 11:03:25.201268 [DEBUG] #5 resolve docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 0.5s done
+2026-Jul-12 11:03:25.201268 [DEBUG] #5 DONE 0.7s
+2026-Jul-12 11:03:25.354890 [DEBUG] #4 [internal] load build context
+2026-Jul-12 11:03:26.037335 [DEBUG] #4 transferring context: 562.99kB 0.1s done
+2026-Jul-12 11:03:26.323875 [DEBUG] #4 DONE 1.1s
+2026-Jul-12 11:03:26.526094 [DEBUG] #6 [2/6] WORKDIR /app
+2026-Jul-12 11:03:26.526094 [DEBUG] #6 CACHED
+2026-Jul-12 11:03:26.526094 [DEBUG] 
+2026-Jul-12 11:03:26.526094 [DEBUG] #7 [3/6] COPY package*.json .npmrc ./
+2026-Jul-12 11:03:27.921184 [DEBUG] #7 DONE 1.4s
+2026-Jul-12 11:03:28.054189 [DEBUG] #8 [4/6] RUN npm install -g npm@11     && npm ci     && test -x node_modules/.bin/vite || (echo "npm ci did not install dependencies correctly" && exit 1)
+2026-Jul-12 11:05:49.373580 [DEBUG] #8 141.3
+2026-Jul-12 11:05:49.373580 [DEBUG] #8 141.3 removed 65 packages, and changed 112 packages in 2m
+2026-Jul-12 11:05:49.373580 [DEBUG] #8 141.3
+2026-Jul-12 11:05:49.373580 [DEBUG] #8 141.3 15 packages are looking for funding
+2026-Jul-12 11:05:49.524318 [DEBUG] #8 141.3   run `npm fund` for details
+2026-Jul-12 11:06:00.093980 [DEBUG] #8 152.0 npm warn deprecated rimraf@2.7.1: Rimraf versions prior to v4 are no longer supported
+2026-Jul-12 11:06:01.021541 [DEBUG] #8 153.0 npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+2026-Jul-12 11:06:01.838237 [DEBUG] #8 153.8 npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+2026-Jul-12 11:06:02.014376 [DEBUG] #8 153.8 npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting <REDACTED>
+2026-Jul-12 11:06:04.721931 [DEBUG] #8 156.7 npm warn deprecated fstream@1.0.12: This package is no longer supported.
+2026-Jul-12 11:06:05.632523 [DEBUG] #8 157.6 npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+2026-Jul-12 11:06:07.050436 [DEBUG] #8 159.0 npm warn deprecated uuid@8.3.2: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+2026-Jul-12 11:06:07.292547 [DEBUG] 
+2026-Jul-12 11:06:21.956473 [DEBUG] #8 173.9
+2026-Jul-12 11:06:21.956473 [DEBUG] #8 173.9 added 354 packages in 32s
+2026-Jul-12 11:06:22.117071 [DEBUG] #8 173.9 npm warn allow-scripts 5 packages have install scripts not yet covered by allowScripts:
+2026-Jul-12 11:06:22.117071 [DEBUG] #8 173.9 npm warn allow-scripts   @google/genai@2.10.0 (preinstall: echo 'preinstall: no-op')
+2026-Jul-12 11:06:22.117071 [DEBUG] #8 173.9 npm warn allow-scripts   core-js@3.49.0 (postinstall: node -e "try{require('./postinstall')}catch(e){}")
+2026-Jul-12 11:06:22.117071 [DEBUG] #8 173.9 npm warn allow-scripts   esbuild@0.25.12 (postinstall: node install.js)
+2026-Jul-12 11:06:22.117071 [DEBUG] #8 173.9 npm warn allow-scripts   protobufjs@7.6.5 (postinstall: node scripts/postinstall)
+2026-Jul-12 11:06:22.117071 [DEBUG] #8 173.9 npm warn allow-scripts   esbuild@0.28.1 (postinstall: node install.js)
+2026-Jul-12 11:06:22.117071 [DEBUG] #8 173.9 npm warn allow-scripts
+2026-Jul-12 11:06:22.117071 [DEBUG] #8 173.9 npm warn allow-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.
+2026-Jul-12 11:06:27.753164 [DEBUG] #8 DONE 179.7s
+2026-Jul-12 11:06:27.962280 [DEBUG] 
+2026-Jul-12 11:06:27.982816 [DEBUG] #9 [5/6] COPY . .
+2026-Jul-12 11:06:30.245487 [DEBUG] #9 DONE 2.4s
+2026-Jul-12 11:06:30.474928 [DEBUG] 
+2026-Jul-12 11:06:30.503043 [DEBUG] #10 [6/6] RUN npm run build
+2026-Jul-12 11:06:32.660786 [DEBUG] #10 2.339
+2026-Jul-12 11:06:32.697854 [DEBUG] #10 2.339 > react-example@0.0.0 build
+2026-Jul-12 11:06:32.697854 [DEBUG] #10 2.339 > vite build
+2026-Jul-12 11:06:32.697854 [DEBUG] #10 2.339
+2026-Jul-12 11:06:34.239327 [DEBUG] #10 3.918 vite v6.4.3 building for production...
+2026-Jul-12 11:06:34.465711 [DEBUG] #10 4.143 transforming...
+2026-Jul-12 11:07:20.538173 [DEBUG] #10 50.18 ✓ 3173 modules transformed.
+2026-Jul-12 11:07:22.623148 [DEBUG] #10 52.30 rendering chunks...
+2026-Jul-12 11:07:22.670017 [DEBUG] 
+2026-Jul-12 11:07:28.073417 [DEBUG] #10 57.75 computing gzip size...
+2026-Jul-12 11:07:29.389472 [DEBUG] #10 58.31 dist/index.html                              0.60 kB │ gzip:   0.41 kB
+2026-Jul-12 11:07:29.389472 [DEBUG] #10 58.32 dist/assets/index-DFidBnLo.css              33.36 kB │ gzip:   6.52 kB
+2026-Jul-12 11:07:29.389472 [DEBUG] #10 58.32 dist/assets/purify.es-Csrj9YNg.js           28.14 kB │ gzip:  10.69 kB
+2026-Jul-12 11:07:29.389472 [DEBUG] #10 58.32 dist/assets/index.es-BWYCYa_x.js           159.60 kB │ gzip:  53.52 kB
+2026-Jul-12 11:07:29.389472 [DEBUG] #10 58.32 dist/assets/html2canvas.esm-QH1iLAAe.js    202.38 kB │ gzip:  48.04 kB
+2026-Jul-12 11:07:29.389472 [DEBUG] #10 58.32 dist/assets/index-Ga6jz77p.js            1,861.05 kB │ gzip: 559.63 kB
+2026-Jul-12 11:07:29.389472 [DEBUG] #10 58.32
+2026-Jul-12 11:07:29.389472 [DEBUG] #10 58.32 (!) Some chunks are larger than 500 kB after minification. Consider:
+2026-Jul-12 11:07:29.389472 [DEBUG] #10 58.32 - Using dynamic import() to code-split the application
+2026-Jul-12 11:07:29.389472 [DEBUG] #10 58.32 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+2026-Jul-12 11:<REDACTED>@0.0.0 start
+2026-Jul-12 11:11:05.069338 > NODE_ENV=production tsx server/index.ts
+2026-Jul-12 11:11:05.069338 
+2026-Jul-12 11:11:05.069338 Server running on http://0.0.0.0:5000
+2026-Jul-12 11:11:05.106546 Warning: connect.session() MemoryStore is not
+2026-Jul-12 11:11:05.106546 designed for a production environment, as it will leak
+2026-Jul-12 11:11:05.106546 memory, and will not scale past a single process.
+2026-Jul-12 11:11:05.128402 ----------------------------------------
+2026-Jul-12 11:11:05.163572 Removing old containers.
+2026-Jul-12 11:11:05.201734 ----------------------------------------
+2026-Jul-12 11:11:05.261219 WARNING: Dockerfile or Docker Image based deployment detected. The healthcheck needs a curl or wget command to check the health of the application. Please make sure that it is available in the image or turn off healthcheck on Coolify's UI.
+2026-Jul-12 11:11:05.314010 ----------------------------------------
+2026-Jul-12 11:11:05.358756 New container is not healthy, rolling back to the old container.
+2026-Jul-12 11:11:06.660798 [DEBUG] [CMD]: docker stop --time=30 nswzqjz1jnr821kuh3s9aji1-110252903911
+2026-Jul-12 11:11:06.660798 [DEBUG] Flag --time has been deprecated, use --timeout instead
+2026-Jul-12 11:11:08.255147 [DEBUG] nswzqjz1jnr821kuh3s9aji1-110252903911
+2026-Jul-12 11:11:08.937785 [DEBUG] [CMD]: docker rm -f nswzqjz1jnr821kuh3s9aji1-110252903911
+2026-Jul-12 11:11:08.937785 [DEBUG] nswzqjz1jnr821kuh3s9aji1-110252903911
+2026-Jul-12 11:11:08.960332 Rolling update completed.
+2026-Jul-12 11:11:11.246105 Gracefully shutting down build container: ls16m7skshzwp2m58bkl4816
+2026-Jul-12 11:11:11.510058 [DEBUG] [CMD]: docker stop --time=30 ls16m7skshzwp2m58bkl4816
+2026-Jul-12 11:11:11.510058 [DEBUG] Flag --time has been deprecated, use --timeout instead
+2026-Jul-12 11:11:13.773724 [DEBUG] ls16m7skshzwp2m58bkl4816
