@@ -90,7 +90,7 @@ function requireAuth(role: 'siswa' | 'guru', idParam?: string) {
 
 async function loadStudent(id: string): Promise<UserProgress | null> {
   const studentRes = await pool.query(
-    'SELECT id, username, name, kelas, email, whatsapp, photo_url, bio FROM students WHERE id = $1',
+    'SELECT id, username, name, kelas, email, whatsapp, photo_url, bio, quran_bookmark FROM students WHERE id = $1',
     [id]
   );
   if (studentRes.rowCount === 0) return null;
@@ -120,6 +120,7 @@ async function loadStudent(id: string): Promise<UserProgress | null> {
     whatsapp: row.whatsapp,
     photoUrl: row.photo_url,
     bio: row.bio,
+    quranBookmark: row.quran_bookmark || null,
     records,
   };
 }
@@ -282,6 +283,36 @@ app.put('/api/students/:id/records/:date', requireAuth('siswa', 'id'), async (re
   } catch (err) {
     console.error('Failed to update record', err);
     res.status(500).json({ error: 'Gagal menyimpan data BLP' });
+  }
+});
+
+// Update siswa's Al-Qur'an reading bookmark (persists across days)
+app.put('/api/students/:id/quran-bookmark', requireAuth('siswa', 'id'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { surahNo, surahName, ayat, halaman } = req.body || {};
+    if (typeof surahNo !== 'number' || typeof surahName !== 'string' || typeof ayat !== 'number') {
+      return res.status(400).json({ error: 'Data penanda tidak valid' });
+    }
+    const student = await pool.query('SELECT id FROM students WHERE id = $1', [id]);
+    if (student.rowCount === 0) {
+      return res.status(404).json({ error: 'Siswa tidak ditemukan' });
+    }
+    const bookmark = {
+      surahNo,
+      surahName,
+      ayat,
+      halaman: typeof halaman === 'number' ? halaman : null,
+      updatedAt: new Date().toISOString(),
+    };
+    await pool.query(
+      'UPDATE students SET quran_bookmark = $2::jsonb WHERE id = $1',
+      [id, JSON.stringify(bookmark)]
+    );
+    res.json(bookmark);
+  } catch (err) {
+    console.error('Failed to update quran bookmark', err);
+    res.status(500).json({ error: 'Gagal menyimpan penanda bacaan' });
   }
 });
 

@@ -1,38 +1,27 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Mic, Square, CheckCircle2, BookOpen, Play, Pause, RotateCcw } from 'lucide-react';
+import { X, Mic, Square, CheckCircle2, BookOpen, Play, Pause, RotateCcw, Bookmark } from 'lucide-react';
+import { SURAH_LIST, getSurah } from '../../data/quran';
+import { QuranBookmark, QuranReadingRef } from '../../types';
 
 interface QuranReadingModalProps {
   activityName: string;
+  bookmark?: QuranBookmark | null;
   onClose: () => void;
-  onSubmit: (audioDataUrl: string) => void;
+  onSubmit: (audioDataUrl: string, quranRef: QuranReadingRef) => void;
 }
 
-const SURAH = {
-  name: "Al-Fatihah (Pembukaan)",
-  ayat: [
-    "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
-    "الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ",
-    "الرَّحْمَٰنِ الرَّحِيمِ",
-    "مَالِكِ يَوْمِ الدِّينِ",
-    "إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ",
-    "اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ",
-    "صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ",
-  ],
-  translation: [
-    "Dengan nama Allah Yang Maha Pengasih, Maha Penyayang.",
-    "Segala puji bagi Allah, Tuhan seluruh alam.",
-    "Yang Maha Pengasih, Maha Penyayang.",
-    "Pemilik hari pembalasan.",
-    "Hanya kepada Engkaulah kami menyembah dan hanya kepada Engkaulah kami mohon pertolongan.",
-    "Tunjukilah kami jalan yang lurus.",
-    "(yaitu) jalan orang-orang yang telah Engkau beri nikmat kepadanya; bukan (jalan) mereka yang dimurkai, dan bukan (pula jalan) mereka yang sesat.",
-  ],
-};
-
 type RecordState = 'idle' | 'recording' | 'recorded';
+type Mode = 'ayat' | 'halaman';
 
-export default function QuranReadingModal({ activityName, onClose, onSubmit }: QuranReadingModalProps) {
+export default function QuranReadingModal({ activityName, bookmark, onClose, onSubmit }: QuranReadingModalProps) {
+  const [mode, setMode] = useState<Mode>('ayat');
+  const [surahNo, setSurahNo] = useState<number>(bookmark?.surahNo || 1);
+  const [ayatFrom, setAyatFrom] = useState<number>(bookmark?.ayat || 1);
+  const [ayatTo, setAyatTo] = useState<number>(bookmark?.ayat || 1);
+  const [halaman, setHalaman] = useState<number>(bookmark?.halaman || 1);
+  const [rangeError, setRangeError] = useState('');
+
   const [recordState, setRecordState] = useState<RecordState>('idle');
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioDataUrl, setAudioDataUrl] = useState<string | null>(null);
@@ -46,6 +35,8 @@ export default function QuranReadingModal({ activityName, onClose, onSubmit }: Q
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
 
+  const selectedSurah = useMemo(() => getSurah(surahNo), [surahNo]);
+
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -53,7 +44,49 @@ export default function QuranReadingModal({ activityName, onClose, onSubmit }: Q
     };
   }, []);
 
+  useEffect(() => {
+    // Keep ayat range within bounds of the selected surah.
+    if (!selectedSurah) return;
+    if (ayatFrom > selectedSurah.ayatCount) setAyatFrom(selectedSurah.ayatCount);
+    if (ayatTo > selectedSurah.ayatCount) setAyatTo(selectedSurah.ayatCount);
+  }, [selectedSurah]);
+
+  const applyBookmark = () => {
+    if (!bookmark) return;
+    setMode(bookmark.halaman ? 'halaman' : 'ayat');
+    setSurahNo(bookmark.surahNo);
+    setAyatFrom(bookmark.ayat);
+    setAyatTo(bookmark.ayat);
+    if (bookmark.halaman) setHalaman(bookmark.halaman);
+  };
+
+  const validateRange = (): boolean => {
+    if (mode === 'halaman') {
+      if (!halaman || halaman < 1 || halaman > 604) {
+        setRangeError('Nomor halaman harus antara 1 - 604.');
+        return false;
+      }
+      setRangeError('');
+      return true;
+    }
+    if (!selectedSurah) {
+      setRangeError('Pilih surah terlebih dahulu.');
+      return false;
+    }
+    if (ayatFrom < 1 || ayatTo < 1 || ayatFrom > selectedSurah.ayatCount || ayatTo > selectedSurah.ayatCount) {
+      setRangeError(`Ayat harus antara 1 - ${selectedSurah.ayatCount} untuk surah ${selectedSurah.nameLatin}.`);
+      return false;
+    }
+    if (ayatTo < ayatFrom) {
+      setRangeError('Ayat akhir tidak boleh lebih kecil dari ayat awal.');
+      return false;
+    }
+    setRangeError('');
+    return true;
+  };
+
   const startRecording = async () => {
+    if (!validateRange()) return;
     setError('');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -118,10 +151,28 @@ export default function QuranReadingModal({ activityName, onClose, onSubmit }: Q
   };
 
   const handleFinish = () => {
-    if (audioDataUrl) {
-      onSubmit(audioDataUrl);
+    if (!audioDataUrl) return;
+    if (!validateRange()) return;
+    if (mode === 'halaman') {
+      onSubmit(audioDataUrl, {
+        surahNo,
+        surahName: selectedSurah?.nameLatin || '',
+        ayatFrom,
+        ayatTo,
+        halaman,
+      });
+    } else if (selectedSurah) {
+      onSubmit(audioDataUrl, {
+        surahNo,
+        surahName: selectedSurah.nameLatin,
+        ayatFrom,
+        ayatTo,
+        halaman: null,
+      });
     }
   };
+
+  const isLocked = recordState !== 'idle';
 
   return (
     <AnimatePresence>
@@ -158,16 +209,122 @@ export default function QuranReadingModal({ activityName, onClose, onSubmit }: Q
               </button>
             </div>
 
-            <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/40 rounded-2xl p-4 space-y-4 max-h-64 overflow-y-auto">
-              <p className="text-center text-sm font-bold text-emerald-700 dark:text-emerald-400">{SURAH.name}</p>
-              {SURAH.ayat.map((ayat, i) => (
-                <div key={i} className="space-y-1 border-b border-emerald-100 dark:border-emerald-900/30 last:border-0 pb-3 last:pb-0">
-                  <p dir="rtl" className="text-right text-xl leading-loose text-slate-800 dark:text-slate-100 font-arabic">
-                    {ayat} <span className="text-emerald-600 dark:text-emerald-400 text-sm">﴿{i + 1}﴾</span>
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 italic">{SURAH.translation[i]}</p>
+            {bookmark && (
+              <button
+                type="button"
+                onClick={applyBookmark}
+                disabled={isLocked}
+                className="w-full flex items-center gap-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/40 rounded-2xl p-3 text-left disabled:opacity-50"
+              >
+                <Bookmark className="text-amber-500 w-4 h-4 flex-shrink-0" />
+                <span className="text-xs text-amber-700 dark:text-amber-400">
+                  Penanda terakhir: <span className="font-bold">{bookmark.surahName}</span>
+                  {bookmark.halaman ? ` — Halaman ${bookmark.halaman}` : ` ayat ${bookmark.ayat}`}.
+                  {' '}Ketuk untuk lanjutkan dari sini.
+                </span>
+              </button>
+            )}
+
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMode('ayat')}
+                  disabled={isLocked}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-colors ${mode === 'ayat' ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'} disabled:opacity-50`}
+                >
+                  Surah &amp; Ayat
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('halaman')}
+                  disabled={isLocked}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-colors ${mode === 'halaman' ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'} disabled:opacity-50`}
+                >
+                  Halaman
+                </button>
+              </div>
+
+              {mode === 'ayat' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <label className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:col-span-3 -mb-1">Surah</label>
+                  <select
+                    value={surahNo}
+                    disabled={isLocked}
+                    onChange={(e) => {
+                      const no = Number(e.target.value);
+                      setSurahNo(no);
+                      setAyatFrom(1);
+                      setAyatTo(1);
+                    }}
+                    className="sm:col-span-3 w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-sm text-slate-800 dark:text-slate-100 disabled:opacity-60"
+                  >
+                    {SURAH_LIST.map(s => (
+                      <option key={s.no} value={s.no}>
+                        {s.no}. {s.nameLatin} — {s.translatedName} ({s.ayatCount} ayat)
+                      </option>
+                    ))}
+                  </select>
+
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Ayat dari</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={selectedSurah?.ayatCount || 1}
+                      value={ayatFrom}
+                      disabled={isLocked}
+                      onChange={(e) => setAyatFrom(Number(e.target.value))}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-sm text-slate-800 dark:text-slate-100 disabled:opacity-60"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Ayat sampai</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={selectedSurah?.ayatCount || 1}
+                      value={ayatTo}
+                      disabled={isLocked}
+                      onChange={(e) => setAyatTo(Number(e.target.value))}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-sm text-slate-800 dark:text-slate-100 disabled:opacity-60"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight">
+                      Maks. {selectedSurah?.ayatCount || '-'} ayat
+                    </p>
+                  </div>
                 </div>
-              ))}
+              ) : (
+                <div>
+                  <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Nomor Halaman (1 - 604)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={604}
+                    value={halaman}
+                    disabled={isLocked}
+                    onChange={(e) => setHalaman(Number(e.target.value))}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-sm text-slate-800 dark:text-slate-100 disabled:opacity-60"
+                  />
+                </div>
+              )}
+
+              {rangeError && (
+                <p className="text-xs text-red-500 font-medium">{rangeError}</p>
+              )}
+
+              <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/40 rounded-2xl p-3 text-center">
+                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                  {mode === 'ayat'
+                    ? `${selectedSurah?.nameLatin || ''} : Ayat ${ayatFrom}${ayatTo !== ayatFrom ? `-${ayatTo}` : ''}`
+                    : `Halaman ${halaman}`}
+                </p>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                  Bacalah bagian ini dari Al-Qur'an/mushaf/aplikasi kamu, lalu rekam bacaannya di bawah.
+                </p>
+              </div>
             </div>
 
             {error && (

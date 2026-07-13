@@ -16,12 +16,29 @@ export interface Category {
   activities: Activity[];
 }
 
+export interface QuranReadingRef {
+  surahNo: number;
+  surahName: string;
+  ayatFrom: number;
+  ayatTo: number;
+  halaman?: number | null; // optional page number (1-604), alternative to ayat
+}
+
 export interface ActivitySubmission {
   type: 'text' | 'audio' | 'checklist';
   content?: string; // free text content, or base64 data URL for audio
   charCount?: number;
   items?: Record<string, boolean>; // for checklist submissions: item id -> checked
+  quranRef?: QuranReadingRef; // for Quran reading (audio) submissions: which surah/ayat/page was read
   recordedAt: string; // ISO timestamp
+}
+
+export interface QuranBookmark {
+  surahNo: number;
+  surahName: string;
+  ayat: number; // next ayat to continue from
+  halaman?: number | null;
+  updatedAt: string; // ISO timestamp
 }
 
 export interface DailyRecord {
@@ -43,6 +60,7 @@ export interface UserProgress {
   password?: string;
   photoUrl?: string | null;
   bio?: string | null;
+  quranBookmark?: QuranBookmark | null;
   records: Record<string, DailyRecord>;
 }
 

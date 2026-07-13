@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { AuthState, SystemData, DailyRecord, UserProgress, GuruProfile } from './types';
+import { AuthState, SystemData, DailyRecord, UserProgress, GuruProfile, QuranBookmark } from './types';
 import Login from './components/Login';
 import SiswaDashboard from './components/SiswaDashboard';
 import GuruDashboard from './components/GuruDashboard';
@@ -167,6 +167,35 @@ export default function App() {
     }));
   };
 
+  const handleUpdateQuranBookmark = async (bookmark: QuranBookmark) => {
+    if (auth.role !== 'siswa' || !auth.userId) return;
+    const userId = auth.userId;
+
+    // Optimistic update
+    setSystemData(prev => {
+      const student = prev.students[userId];
+      if (!student) return prev;
+      return {
+        ...prev,
+        students: {
+          ...prev.students,
+          [userId]: { ...student, quranBookmark: bookmark },
+        },
+      };
+    });
+
+    try {
+      const res = await fetch(`/api/students/${encodeURIComponent(userId)}/quran-bookmark`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bookmark),
+      });
+      if (!res.ok) throw new Error('Gagal menyimpan penanda bacaan');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleUpdateGuruProfile = async (photoUrl: string | null, bio: string) => {
     if (auth.role !== 'guru' || !auth.userId) return;
     const userId = auth.userId;
@@ -205,6 +234,7 @@ export default function App() {
         toggleReminders={toggleReminders}
         onUpdateRecord={handleUpdateRecord}
         onUpdateProfile={handleUpdateStudentProfile}
+        onUpdateQuranBookmark={handleUpdateQuranBookmark}
         onLogout={handleLogout}
       />
     );

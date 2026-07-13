@@ -21,7 +21,8 @@ import {
   PenLine,
   ListChecks,
   Lock,
-  FileDown
+  FileDown,
+  Bookmark
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, addMonths, subMonths, startOfDay } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -29,7 +30,8 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 import { BLP_CATEGORIES, PERLENGKAPAN_SEKOLAH_ITEMS } from '../data/activities';
-import { DailyRecord, UserProgress, ActivitySubmission } from '../types';
+import { getSurah } from '../data/quran';
+import { DailyRecord, UserProgress, ActivitySubmission, QuranBookmark } from '../types';
 import TextSubmissionModal from './modals/TextSubmissionModal';
 import ChecklistSubmissionModal from './modals/ChecklistSubmissionModal';
 import QuranReadingModal from './modals/QuranReadingModal';
@@ -88,6 +90,7 @@ interface SiswaDashboardProps {
   toggleReminders: () => void;
   onUpdateRecord: (dateKey: string, updatedRecord: DailyRecord) => void;
   onUpdateProfile: (photoUrl: string | null, bio: string) => Promise<void> | void;
+  onUpdateQuranBookmark: (bookmark: QuranBookmark) => Promise<void> | void;
   onLogout: () => void;
 }
 
@@ -99,6 +102,7 @@ export default function SiswaDashboard({
   toggleReminders,
   onUpdateRecord,
   onUpdateProfile,
+  onUpdateQuranBookmark,
   onLogout
 }: SiswaDashboardProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
@@ -417,6 +421,13 @@ export default function SiswaDashboard({
                             <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-medium uppercase tracking-wider">
                               Target: {activity.target}
                             </p>
+                            {activity.id === QURAN_ACTIVITY_ID && user.quranBookmark && (
+                              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5 font-medium flex items-center gap-1">
+                                <Bookmark size={10} />
+                                Penanda: {user.quranBookmark.surahName}
+                                {user.quranBookmark.halaman ? ` — Hal. ${user.quranBookmark.halaman}` : ` ayat ${user.quranBookmark.ayat}`}
+                              </p>
+                            )}
                           </div>
                           {isDone && (
                             <motion.div
@@ -585,13 +596,41 @@ export default function SiswaDashboard({
       {activeModalActivityId === QURAN_ACTIVITY_ID && (
         <QuranReadingModal
           activityName={BLP_CATEGORIES.flatMap(c => c.activities).find(a => a.id === QURAN_ACTIVITY_ID)?.name || ''}
+          bookmark={user.quranBookmark}
           onClose={() => setActiveModalActivityId(null)}
-          onSubmit={(audioDataUrl) => {
+          onSubmit={(audioDataUrl, quranRef) => {
             applySubmissionCompletion(QURAN_ACTIVITY_ID, {
               type: 'audio',
               content: audioDataUrl,
+              quranRef,
               recordedAt: new Date().toISOString(),
             });
+            const surah = getSurah(quranRef.surahNo);
+            const isLastAyat = surah ? quranRef.ayatTo >= surah.ayatCount : false;
+            const nextBookmark: QuranBookmark = quranRef.halaman
+              ? {
+                  surahNo: quranRef.surahNo,
+                  surahName: quranRef.surahName,
+                  ayat: quranRef.ayatTo,
+                  halaman: Math.min(604, quranRef.halaman + 1),
+                  updatedAt: new Date().toISOString(),
+                }
+              : isLastAyat && surah && surah.no < 114
+              ? {
+                  surahNo: surah.no + 1,
+                  surahName: getSurah(surah.no + 1)?.nameLatin || '',
+                  ayat: 1,
+                  halaman: null,
+                  updatedAt: new Date().toISOString(),
+                }
+              : {
+                  surahNo: quranRef.surahNo,
+                  surahName: quranRef.surahName,
+                  ayat: quranRef.ayatTo + 1,
+                  halaman: null,
+                  updatedAt: new Date().toISOString(),
+                };
+            onUpdateQuranBookmark(nextBookmark);
           }}
         />
       )}
