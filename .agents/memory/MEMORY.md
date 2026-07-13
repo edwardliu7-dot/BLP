@@ -10,3 +10,5 @@
 - [Coolify healthcheck needs curl](coolify-healthcheck-curl.md) — Coolify rolls back an otherwise-healthy deploy if the image lacks curl/wget for its healthcheck probe.
 - [Quran reading feature](quran-reading-feature.md) — surah/ayat/page picker + per-student bookmark for the "Membaca Al-Qur'an" activity; bookmark lives on students table, not daily_records.
 - [Wali kelas class scoping](wali-kelas-class-scoping.md) — gurus.kelas_diampu typos/over-broad assignments can hide or leak students; server normalizes spelling but class-list correctness needs user confirmation.
+- [BLP scoring exclusions](blp-scoring-exclusions.md) — school-only activities (r1/rp1) skip weekends; per-class-per-month active period excludes days from averages without blocking input; shared blpScoring.ts is the single source of truth.
+- [Redacting secrets in exec output](redact-secret-in-exec-output.md) — mask both raw AND URL-encoded/transformed forms of a secret before logging command output, or transformed forms leak past a naive string replace.
