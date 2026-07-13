@@ -76,9 +76,15 @@ export interface GuruProfile {
   bio?: string | null;
 }
 
+export interface BlpPeriod {
+  startDay: number; // 1-31, inclusive
+  endDay: number; // 1-31, inclusive
+}
+
 export interface SystemData {
   students: Record<string, UserProgress>;
   gurus: Record<string, GuruProfile>;
+  blpPeriods: Record<string, BlpPeriod>; // key: `${kelas}__${year}-${month}`
 }
 
 export type Role = 'siswa' | 'guru' | null;

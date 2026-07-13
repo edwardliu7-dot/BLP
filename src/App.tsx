@@ -10,7 +10,7 @@ const AUTH_KEY = 'blp_auth_state';
 
 export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
-  const [systemData, setSystemData] = useState<SystemData>({ students: {}, gurus: {} });
+  const [systemData, setSystemData] = useState<SystemData>({ students: {}, gurus: {}, blpPeriods: {} });
   const [auth, setAuth] = useState<AuthState>({ role: null });
   const [darkMode, setDarkMode] = useState(false);
   const [remindersEnabled, setRemindersEnabled] = useState(false);
@@ -254,6 +254,29 @@ export default function App() {
     });
   };
 
+  const handleSaveBlpPeriod = async (kelas: string, year: number, month: number, startDay: number, endDay: number) => {
+    const res = await fetch('/api/blp-periods', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kelas, year, month, startDay, endDay }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.error || 'Gagal menyimpan rentang tanggal aktif BLP');
+    }
+    const saved = await res.json();
+    setSystemData(prev => ({
+      ...prev,
+      blpPeriods: {
+        ...prev.blpPeriods,
+        [`${saved.kelas}__${saved.year}-${String(saved.month).padStart(2, '0')}`]: {
+          startDay: saved.startDay,
+          endDay: saved.endDay,
+        },
+      },
+    }));
+  };
+
   if (!isInitialized) return null;
 
   if (loadError) {
@@ -270,6 +293,7 @@ export default function App() {
     return (
       <SiswaDashboard 
         user={user}
+        blpPeriods={systemData.blpPeriods}
         darkMode={darkMode}
         setDarkMode={setDarkMode}
         remindersEnabled={remindersEnabled}
@@ -291,6 +315,7 @@ export default function App() {
         onUpdateProfile={handleUpdateGuruProfile}
         onDeleteStudent={handleDeleteStudent}
         onReviewSubmission={handleReviewSubmission}
+        onSaveBlpPeriod={handleSaveBlpPeriod}
       />
     );
   }

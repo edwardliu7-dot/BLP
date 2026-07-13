@@ -29,6 +29,10 @@ export default function QuranReadingModal({ activityName, bookmark, onClose, onS
   const [elapsed, setElapsed] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
 
+  const [surahText, setSurahText] = useState<{ arabic: string[]; translations: string[] } | null>(null);
+  const [textLoading, setTextLoading] = useState(false);
+  const [textError, setTextError] = useState('');
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -50,6 +54,31 @@ export default function QuranReadingModal({ activityName, bookmark, onClose, onS
     if (ayatFrom > selectedSurah.ayatCount) setAyatFrom(selectedSurah.ayatCount);
     if (ayatTo > selectedSurah.ayatCount) setAyatTo(selectedSurah.ayatCount);
   }, [selectedSurah]);
+
+  // Fetch the Arabic text + Indonesian translation for the selected surah so
+  // students actually have something to read from inside the app, instead of
+  // needing a separate physical mushaf/app just to see the verses.
+  useEffect(() => {
+    if (mode !== 'ayat') return;
+    let cancelled = false;
+    setTextLoading(true);
+    setTextError('');
+    fetch(`/api/quran/surah/${surahNo}`)
+      .then(res => {
+        if (!res.ok) throw new Error('Gagal memuat teks');
+        return res.json();
+      })
+      .then(data => {
+        if (!cancelled) setSurahText(data);
+      })
+      .catch(() => {
+        if (!cancelled) setTextError('Teks Al-Qur\'an tidak dapat dimuat. Kamu tetap bisa membaca dari mushaf/aplikasi lain.');
+      })
+      .finally(() => {
+        if (!cancelled) setTextLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [mode, surahNo]);
 
   const applyBookmark = () => {
     if (!bookmark) return;
@@ -322,9 +351,40 @@ export default function QuranReadingModal({ activityName, bookmark, onClose, onS
                     : `Halaman ${halaman}`}
                 </p>
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                  Bacalah bagian ini dari Al-Qur'an/mushaf/aplikasi kamu, lalu rekam bacaannya di bawah.
+                  {mode === 'ayat'
+                    ? 'Bacalah ayat di bawah ini, lalu rekam bacaannya.'
+                    : "Bacalah bagian ini dari Al-Qur'an/mushaf/aplikasi kamu, lalu rekam bacaannya di bawah."}
                 </p>
               </div>
+
+              {mode === 'ayat' && (
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 max-h-64 overflow-y-auto space-y-4">
+                  {textLoading && (
+                    <p className="text-xs text-slate-400 text-center">Memuat teks ayat...</p>
+                  )}
+                  {!textLoading && textError && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 text-center">{textError}</p>
+                  )}
+                  {!textLoading && !textError && surahText && selectedSurah && (
+                    Array.from({ length: Math.max(0, ayatTo - ayatFrom + 1) }).map((_, i) => {
+                      const ayatNo = ayatFrom + i;
+                      const arabic = surahText.arabic[ayatNo - 1];
+                      const translation = surahText.translations[ayatNo - 1];
+                      if (!arabic) return null;
+                      return (
+                        <div key={ayatNo} className="space-y-1.5">
+                          <p dir="rtl" lang="ar" className="text-right text-xl leading-loose text-slate-800 dark:text-slate-100" style={{ fontFamily: '"Traditional Arabic", "Amiri", serif' }}>
+                            {arabic} <span className="text-emerald-600 dark:text-emerald-400 text-sm align-middle">({ayatNo})</span>
+                          </p>
+                          {translation && (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{translation}</p>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
             </div>
 
             {error && (

@@ -31,12 +31,13 @@ import { twMerge } from 'tailwind-merge';
 
 import { BLP_CATEGORIES, PERLENGKAPAN_SEKOLAH_ITEMS } from '../data/activities';
 import { getSurah } from '../data/quran';
-import { DailyRecord, UserProgress, ActivitySubmission, QuranBookmark } from '../types';
+import { DailyRecord, UserProgress, ActivitySubmission, QuranBookmark, BlpPeriod } from '../types';
 import TextSubmissionModal from './modals/TextSubmissionModal';
 import ChecklistSubmissionModal from './modals/ChecklistSubmissionModal';
 import QuranReadingModal from './modals/QuranReadingModal';
 import ProfileModal from './modals/ProfileModal';
 import { downloadRekapPDF, downloadRekapExcel } from '../utils/rekapExport';
+import { SCHOOL_ONLY_ACTIVITY_IDS, isSchoolDay, getEffectiveTotalActivities, getEffectiveCompletedCount, isDateCountedForRecap } from '../utils/blpScoring';
 
 const QURAN_ACTIVITY_ID = 'd5';
 const BELAJAR_ACTIVITY_ID = 'rs1';
@@ -84,6 +85,7 @@ function cn(...inputs: ClassValue[]) {
 
 interface SiswaDashboardProps {
   user: UserProgress;
+  blpPeriods: Record<string, BlpPeriod>;
   darkMode: boolean;
   setDarkMode: (val: boolean) => void;
   remindersEnabled: boolean;
@@ -96,6 +98,7 @@ interface SiswaDashboardProps {
 
 export default function SiswaDashboard({ 
   user, 
+  blpPeriods,
   darkMode, 
   setDarkMode, 
   remindersEnabled, 
@@ -137,6 +140,10 @@ export default function SiswaDashboard({
       alert('BLP hanya bisa diisi untuk hari ini. Tanggal yang sudah lewat atau belum tiba tidak dapat diubah.');
       return;
     }
+    if (SCHOOL_ONLY_ACTIVITY_IDS.includes(activityId) && !isSchoolDay(selectedDate)) {
+      alert('Kegiatan ini hanya berlaku pada hari sekolah (Senin-Jumat).');
+      return;
+    }
 
     const isDone = currentRecord.completedActivities.includes(activityId);
 
@@ -159,8 +166,8 @@ export default function SiswaDashboard({
     });
   };
 
-  const totalActivities = BLP_CATEGORIES.reduce((acc, cat) => acc + cat.activities.length, 0);
-  const completedCount = currentRecord.completedActivities.length;
+  const totalActivities = getEffectiveTotalActivities(selectedDate);
+  const completedCount = getEffectiveCompletedCount(selectedDate, currentRecord.completedActivities);
   const completionRate = totalActivities > 0 ? (completedCount / totalActivities) * 100 : 0;
 
   const monthStart = startOfMonth(selectedDate);
@@ -168,13 +175,15 @@ export default function SiswaDashboard({
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
   const monthlyStats = useMemo(() => {
-    let totalPossible = daysInMonth.length * totalActivities;
+    let totalPossible = 0;
     let totalDone = 0;
-    
+
     daysInMonth.forEach(day => {
+      if (!isDateCountedForRecap(day, user.kelas, blpPeriods)) return;
+      totalPossible += getEffectiveTotalActivities(day);
       const key = format(day, 'yyyy-MM-dd');
       if (records[key]) {
-        totalDone += records[key].completedActivities.length;
+        totalDone += getEffectiveCompletedCount(day, records[key].completedActivities);
       }
     });
 
@@ -183,7 +192,7 @@ export default function SiswaDashboard({
       totalPossible,
       rate: totalPossible > 0 ? (totalDone / totalPossible) * 100 : 0
     };
-  }, [daysInMonth, records, totalActivities]);
+  }, [daysInMonth, records, user.kelas, blpPeriods]);
 
   const exportData = () => {
     const data = {
@@ -389,14 +398,16 @@ export default function SiswaDashboard({
                   <div className="grid gap-3">
                     {category.activities.map((activity) => {
                       const isDone = currentRecord.completedActivities.includes(activity.id);
+                      const isSchoolOnly = SCHOOL_ONLY_ACTIVITY_IDS.includes(activity.id) && !isSchoolDay(selectedDate);
                       return (
                         <motion.button
                           key={activity.id}
-                          whileTap={isEditableDay ? { scale: 0.98 } : undefined}
+                          whileTap={isEditableDay && !isSchoolOnly ? { scale: 0.98 } : undefined}
                           onClick={() => toggleActivity(activity.id)}
                           className={cn(
                             "flex items-center gap-4 p-4 rounded-2xl border transition-all text-left",
                             !isEditableDay && "opacity-60 cursor-not-allowed",
+                            isSchoolOnly && "opacity-50 cursor-not-allowed",
                             isDone 
                               ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 shadow-sm" 
                               : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700"
@@ -421,6 +432,11 @@ export default function SiswaDashboard({
                             <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-medium uppercase tracking-wider">
                               Target: {activity.target}
                             </p>
+                            {isSchoolOnly && (
+                              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5 font-medium">
+                                Tidak berlaku di akhir pekan (bukan hari sekolah)
+                              </p>
+                            )}
                             {activity.id === QURAN_ACTIVITY_ID && user.quranBookmark && (
                               <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5 font-medium flex items-center gap-1">
                                 <Bookmark size={10} />
@@ -494,7 +510,8 @@ export default function SiswaDashboard({
                 {daysInMonth.map((day) => {
                   const key = format(day, 'yyyy-MM-dd');
                   const dayRecord = records[key];
-                  const dayRate = dayRecord ? (dayRecord.completedActivities.length / totalActivities) : 0;
+                  const dayEffectiveTotal = getEffectiveTotalActivities(day);
+                  const dayRate = dayRecord ? (getEffectiveCompletedCount(day, dayRecord.completedActivities) / dayEffectiveTotal) : 0;
                   
                   return (
                     <button

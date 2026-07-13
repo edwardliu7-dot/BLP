@@ -4,36 +4,50 @@ import ExcelJS from 'exceljs';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDaysInMonth } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { BLP_CATEGORIES } from '../data/activities';
-import { UserProgress } from '../types';
+import { UserProgress, BlpPeriod } from '../types';
+import { SCHOOL_ONLY_ACTIVITY_IDS, isSchoolDay, isDateCountedForRecap } from './blpScoring';
 
 const TOTAL_DAY_COLS = 31;
 const BRAND_GREEN = 'FF107C57';
 const LIGHT_GREEN = 'FFDCEFE6';
 const GREY = 'FFF2F2F2';
 
-function buildRekapRows(user: UserProgress, monthDate: Date) {
+// A day only "counts" for an activity row if it's within the class's active
+// BLP period for that month, and — for school-only activities like "Datang
+// ke sekolah tepat waktu" — only if it's also a school day (Mon-Fri).
+function isDayCountedForActivity(day: Date, activityId: string, kelas: string, blpPeriods?: Record<string, BlpPeriod>): boolean {
+  if (!isDateCountedForRecap(day, kelas, blpPeriods)) return false;
+  if (SCHOOL_ONLY_ACTIVITY_IDS.includes(activityId) && !isSchoolDay(day)) return false;
+  return true;
+}
+
+function buildRekapRows(user: UserProgress, monthDate: Date, blpPeriods?: Record<string, BlpPeriod>) {
   const monthStart = startOfMonth(monthDate);
   const monthEnd = endOfMonth(monthDate);
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
   const totalDays = getDaysInMonth(monthDate);
 
-  const rows: { no: number; name: string; target: string; marks: boolean[]; capaian: number; targetCount: number }[][] = [];
+  const rows: { no: number; name: string; target: string; marks: boolean[]; counted: boolean[]; capaian: number; targetCount: number }[][] = [];
 
   BLP_CATEGORIES.forEach((cat) => {
     const catRows = cat.activities.map((activity, idx) => {
-      const marks = daysInMonth.map((day) => {
+      const counted = daysInMonth.map((day) => isDayCountedForActivity(day, activity.id, user.kelas, blpPeriods));
+      const marks = daysInMonth.map((day, i) => {
+        if (!counted[i]) return false;
         const key = format(day, 'yyyy-MM-dd');
         const rec = user.records[key];
         return !!rec && rec.completedActivities.includes(activity.id);
       });
       const capaian = marks.filter(Boolean).length;
+      const targetCount = counted.filter(Boolean).length;
       return {
         no: idx + 1,
         name: activity.name,
         target: activity.target,
         marks,
+        counted,
         capaian,
-        targetCount: totalDays,
+        targetCount,
       };
     });
     rows.push(catRows);
@@ -62,8 +76,8 @@ function saveBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function downloadRekapPDF(user: UserProgress, monthDate: Date) {
-  const { rows, totalDays } = buildRekapRows(user, monthDate);
+export function downloadRekapPDF(user: UserProgress, monthDate: Date, blpPeriods?: Record<string, BlpPeriod>) {
+  const { rows, totalDays } = buildRekapRows(user, monthDate, blpPeriods);
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
   doc.setFontSize(11);
@@ -99,7 +113,7 @@ export function downloadRekapPDF(user: UserProgress, monthDate: Date) {
     ]);
     rows[catIdx].forEach((r) => {
       const cells = Array.from({ length: TOTAL_DAY_COLS }).map((_, i) => {
-        if (i >= totalDays) {
+        if (i >= totalDays || !r.counted[i]) {
           return { content: '', styles: { fillColor: [230, 230, 230] } };
         }
         return r.marks[i] ? 'v' : '';
@@ -155,8 +169,8 @@ export function downloadRekapPDF(user: UserProgress, monthDate: Date) {
   doc.save(`Rekap_BLP_${user.name}_${format(monthDate, 'MMMM_yyyy', { locale: localeId })}.pdf`);
 }
 
-export async function downloadRekapExcel(user: UserProgress, monthDate: Date) {
-  const { rows, totalDays } = buildRekapRows(user, monthDate);
+export async function downloadRekapExcel(user: UserProgress, monthDate: Date, blpPeriods?: Record<string, BlpPeriod>) {
+  const { rows, totalDays } = buildRekapRows(user, monthDate, blpPeriods);
   const TOTAL_COLS = 3 + TOTAL_DAY_COLS + 2;
 
   const workbook = new ExcelJS.Workbook();
@@ -276,7 +290,7 @@ export async function downloadRekapExcel(user: UserProgress, monthDate: Date) {
         const cell = ws.getCell(r, 4 + d);
         cell.border = thinBorder;
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        if (d >= totalDays) {
+        if (d >= totalDays || !activityRow.counted[d]) {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREY } };
         } else if (activityRow.marks[d]) {
           cell.value = '✓';

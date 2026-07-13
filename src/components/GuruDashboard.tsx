@@ -16,7 +16,8 @@ import {
   Eye,
   Mic,
   PenLine,
-  ListChecks
+  ListChecks,
+  Settings2
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, addMonths, subMonths, addDays, subDays, startOfDay } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -26,10 +27,12 @@ import { twMerge } from 'tailwind-merge';
 import { BLP_CATEGORIES, PERLENGKAPAN_SEKOLAH_ITEMS } from '../data/activities';
 import { SystemData, DailyRecord, AuthState, ActivitySubmission } from '../types';
 import { downloadRekapPDF, downloadRekapExcel } from '../utils/rekapExport';
+import { getEffectiveTotalActivities, getEffectiveCompletedCount, isDateCountedForRecap, getBlpPeriodKeyForDate } from '../utils/blpScoring';
 import { FileDown } from 'lucide-react';
 import ProfileModal from './modals/ProfileModal';
 import ConfirmModal from './modals/ConfirmModal';
 import GuruReviewSubmissionModal from './modals/GuruReviewSubmissionModal';
+import BlpPeriodModal from './modals/BlpPeriodModal';
 
 const QURAN_ACTIVITY_ID = 'd5';
 const CHECKLIST_ACTIVITY_ID = 'rp1';
@@ -45,15 +48,17 @@ interface GuruDashboardProps {
   onUpdateProfile: (photoUrl: string | null, bio: string) => Promise<void> | void;
   onDeleteStudent: (studentId: string) => Promise<void>;
   onReviewSubmission: (studentId: string, dateKey: string, activityId: string) => Promise<void>;
+  onSaveBlpPeriod: (kelas: string, year: number, month: number, startDay: number, endDay: number) => Promise<void>;
 }
 
-export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProfile, onDeleteStudent, onReviewSubmission }: GuruDashboardProps) {
+export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProfile, onDeleteStudent, onReviewSubmission, onSaveBlpPeriod }: GuruDashboardProps) {
   const [view, setView] = useState<'list' | 'detail' | 'presentation' | 'recap'>('list');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [deletingStudentId, setDeletingStudentId] = useState<string | null>(null);
   const [reviewingActivityId, setReviewingActivityId] = useState<string | null>(null);
+  const [showPeriodModal, setShowPeriodModal] = useState(false);
   const guru = auth.userId ? systemData.gurus[auth.userId] : null;
 
   // Filter students based on teacher's classes, sorted by class then name so
@@ -67,11 +72,11 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
     });
   
   const dateKey = format(selectedDate, 'yyyy-MM-dd');
-  const totalActivities = BLP_CATEGORIES.reduce((acc, cat) => acc + cat.activities.length, 0);
+  const totalActivities = getEffectiveTotalActivities(selectedDate);
 
   const selectedStudent = selectedStudentId ? systemData.students[selectedStudentId] : null;
   const currentRecord = selectedStudent?.records[dateKey] || { date: dateKey, completedActivities: [] };
-  const autoScore = Math.round((currentRecord.completedActivities.length / totalActivities) * 100);
+  const autoScore = Math.round((getEffectiveCompletedCount(selectedDate, currentRecord.completedActivities) / totalActivities) * 100);
 
   const handleSelectStudent = (id: string) => {
     setSelectedStudentId(id);
@@ -186,9 +191,11 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
                 <div className="p-8 text-center text-slate-500">Belum ada siswa yang mendaftar.</div>
               ) : (
                 students.map(s => {
-                  const sTodayRecord = s.records[format(new Date(), 'yyyy-MM-dd')];
-                  const sCount = sTodayRecord ? sTodayRecord.completedActivities.length : 0;
-                  const autoStudentScore = Math.round((sCount / totalActivities) * 100);
+                  const today = new Date();
+                  const sTodayRecord = s.records[format(today, 'yyyy-MM-dd')];
+                  const sTotalActivities = getEffectiveTotalActivities(today);
+                  const sCount = sTodayRecord ? getEffectiveCompletedCount(today, sTodayRecord.completedActivities) : 0;
+                  const autoStudentScore = Math.round((sCount / sTotalActivities) * 100);
 
                   return (
                     <button
@@ -275,7 +282,27 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
         {renderHeader("Rekap Nilai Bulanan", "Rata-rata Nilai BLP Siswa")}
         <main className="max-w-4xl mx-auto p-4 space-y-6 mt-4">
           {renderDateSelector()}
-          
+
+          <div className="flex justify-end">
+            <button
+              onClick={() => setShowPeriodModal(true)}
+              className="flex items-center gap-2 text-sm font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 px-3 py-2 rounded-xl transition-colors"
+            >
+              <Settings2 size={16} /> Atur Hari Aktif BLP
+            </button>
+          </div>
+
+          {showPeriodModal && (
+            <BlpPeriodModal
+              kelasOptions={allowedClasses}
+              monthDate={selectedDate}
+              blpPeriods={systemData.blpPeriods}
+              getPeriodKey={(kelas, date) => getBlpPeriodKeyForDate(kelas, date)}
+              onClose={() => setShowPeriodModal(false)}
+              onSave={onSaveBlpPeriod}
+            />
+          )}
+
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -290,12 +317,15 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
                 {students.map(s => {
                   let totalScore = 0;
                   let scoredDaysCount = 0;
-                  
+
                   daysInMonth.forEach(day => {
+                    if (!isDateCountedForRecap(day, s.kelas, systemData.blpPeriods)) return;
                     const k = format(day, 'yyyy-MM-dd');
                     const r = s.records[k];
                     if (r && r.completedActivities.length > 0) {
-                      totalScore += Math.round((r.completedActivities.length / totalActivities) * 100);
+                      const dayTotal = getEffectiveTotalActivities(day);
+                      const dayDone = getEffectiveCompletedCount(day, r.completedActivities);
+                      totalScore += Math.round((dayDone / dayTotal) * 100);
                       scoredDaysCount++;
                     }
                   });
@@ -310,14 +340,14 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button
-                            onClick={() => downloadRekapPDF(s, selectedDate)}
+                            onClick={() => downloadRekapPDF(s, selectedDate, systemData.blpPeriods)}
                             title="Unduh PDF"
                             className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
                           >
                             <FileDown size={14} />
                           </button>
                           <button
-                            onClick={() => downloadRekapExcel(s, selectedDate)}
+                            onClick={() => downloadRekapExcel(s, selectedDate, systemData.blpPeriods)}
                             title="Unduh Excel"
                             className="p-1.5 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors"
                           >

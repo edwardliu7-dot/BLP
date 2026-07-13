@@ -2,7 +2,7 @@ import express from 'express';
 import session from 'express-session';
 import bcrypt from 'bcryptjs';
 import { pool } from './db';
-import type { UserProgress, GuruProfile, DailyRecord, SystemData } from '../src/types';
+import type { UserProgress, GuruProfile, DailyRecord, SystemData, BlpPeriod } from '../src/types';
 import { KELAS_OPTIONS } from '../src/types';
 
 declare module 'express-session' {
@@ -166,7 +166,23 @@ async function loadGuru(id: string): Promise<GuruProfile | null> {
   };
 }
 
-// GET all system data (students + gurus), used on app load
+function blpPeriodKey(kelas: string, year: number, month: number): string {
+  return `${kelas}__${year}-${String(month).padStart(2, '0')}`;
+}
+
+async function loadBlpPeriods(): Promise<SystemData['blpPeriods']> {
+  const res = await pool.query('SELECT kelas, year, month, start_day, end_day FROM blp_periods');
+  const periods: SystemData['blpPeriods'] = {};
+  for (const row of res.rows) {
+    periods[blpPeriodKey(normalizeKelas(row.kelas), row.year, row.month)] = {
+      startDay: row.start_day,
+      endDay: row.end_day,
+    };
+  }
+  return periods;
+}
+
+// GET all system data (students + gurus + BLP active-period settings), used on app load
 app.get('/api/system-data', async (_req, res) => {
   try {
     const studentIdsRes = await pool.query('SELECT id FROM students');
@@ -184,10 +200,50 @@ app.get('/api/system-data', async (_req, res) => {
       if (guru) gurus[guru.id] = guru;
     }
 
-    res.json({ students, gurus });
+    const blpPeriods = await loadBlpPeriods();
+
+    res.json({ students, gurus, blpPeriods });
   } catch (err) {
     console.error('Failed to load system data', err);
     res.status(500).json({ error: 'Gagal memuat data sistem' });
+  }
+});
+
+// Guru: set the active BLP date range (1-31) for a class in a given month.
+// Days outside this range are not counted in that class's monthly recap.
+// Only a guru who actually teaches the class may configure it.
+app.put('/api/blp-periods', requireAuth('guru'), async (req, res) => {
+  try {
+    const { kelas, year, month, startDay, endDay } = req.body || {};
+    if (
+      typeof kelas !== 'string' || !kelas.trim() ||
+      !Number.isInteger(year) || year < 2000 || year > 2100 ||
+      !Number.isInteger(month) || month < 1 || month > 12 ||
+      !Number.isInteger(startDay) || startDay < 1 || startDay > 31 ||
+      !Number.isInteger(endDay) || endDay < 1 || endDay > 31 ||
+      endDay < startDay
+    ) {
+      return res.status(400).json({ error: 'Data rentang tanggal aktif BLP tidak valid' });
+    }
+    const guru = await loadGuru(req.session.userId!);
+    if (!guru) {
+      return res.status(404).json({ error: 'Akun guru tidak ditemukan' });
+    }
+    const targetKelas = normalizeKelas(kelas);
+    if (!guru.kelasDiampu.includes(targetKelas)) {
+      return res.status(403).json({ error: 'Anda tidak memiliki akses untuk mengatur kelas ini' });
+    }
+    await pool.query(
+      `INSERT INTO blp_periods (kelas, year, month, start_day, end_day, updated_by, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, now())
+       ON CONFLICT (kelas, year, month)
+       DO UPDATE SET start_day = EXCLUDED.start_day, end_day = EXCLUDED.end_day, updated_by = EXCLUDED.updated_by, updated_at = now()`,
+      [targetKelas, year, month, startDay, endDay, guru.id]
+    );
+    res.json({ kelas: targetKelas, year, month, startDay, endDay } as { kelas: string; year: number; month: number } & BlpPeriod);
+  } catch (err) {
+    console.error('Failed to save BLP period', err);
+    res.status(500).json({ error: 'Gagal menyimpan rentang tanggal aktif BLP' });
   }
 });
 
@@ -515,7 +571,58 @@ async function purgeExpiredSubmissions() {
   }
 }
 
+// In-memory cache for the Al-Qur'an text proxy (per-surah), since surah text
+// never changes and the upstream API has no need to be hit more than once.
+const quranSurahCache = new Map<number, { arabic: string[]; translations: string[] }>();
+
+// Proxy for Al-Qur'an ayat text (Arabic + Indonesian translation), so the
+// Qur'an reading modal can display the text to read instead of requiring the
+// student to already own a physical mushaf. Fetched from equran.id (public,
+// no key required) and cached in memory per surah.
+app.get('/api/quran/surah/:no', async (req, res) => {
+  try {
+    const no = Number(req.params.no);
+    if (!Number.isInteger(no) || no < 1 || no > 114) {
+      return res.status(400).json({ error: 'Nomor surah tidak valid' });
+    }
+    if (quranSurahCache.has(no)) {
+      return res.json(quranSurahCache.get(no));
+    }
+    const upstream = await fetch(`https://equran.id/api/v2/surat/${no}`);
+    if (!upstream.ok) {
+      return res.status(502).json({ error: 'Gagal mengambil teks Al-Qur\'an' });
+    }
+    const body = await upstream.json();
+    const ayatList = body?.data?.ayat || [];
+    const result = {
+      arabic: ayatList.map((a: any) => a.teksArab || ''),
+      translations: ayatList.map((a: any) => a.teksIndonesia || ''),
+    };
+    quranSurahCache.set(no, result);
+    res.json(result);
+  } catch (err) {
+    console.error('Failed to fetch quran surah text', err);
+    res.status(502).json({ error: 'Gagal mengambil teks Al-Qur\'an' });
+  }
+});
+
+async function ensureSchema() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS blp_periods (
+      kelas text NOT NULL,
+      year integer NOT NULL,
+      month integer NOT NULL,
+      start_day integer NOT NULL,
+      end_day integer NOT NULL,
+      updated_by text,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (kelas, year, month)
+    )
+  `);
+}
+
 async function startServer() {
+  await ensureSchema();
   const port = Number(process.env.PORT) || 5000;
 
   if (process.env.NODE_ENV === 'production') {
