@@ -269,38 +269,6 @@ export default function App() {
     }));
   };
 
-  const handleGenerateStudentAccount = async (data: { name: string; kelas: string; email?: string; whatsapp?: string }) => {
-    const res = await fetch('/api/guru/students/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      throw new Error(body?.error || 'Gagal membuat akun siswa');
-    }
-    const created = await res.json();
-    setSystemData(prev => ({
-      ...prev,
-      students: {
-        ...prev.students,
-        [created.id]: {
-          id: created.id,
-          username: created.username,
-          name: created.name,
-          kelas: created.kelas,
-          email: data.email || '',
-          whatsapp: data.whatsapp || '',
-          photoUrl: null,
-          bio: null,
-          quranBookmark: null,
-          records: {},
-        },
-      },
-    }));
-    return created as { id: string; username: string; password: string; name: string; kelas: string };
-  };
-
   if (!isInitialized) return null;
 
   if (loadError) {
@@ -340,7 +308,6 @@ export default function App() {
         onDeleteStudent={handleDeleteStudent}
         onReviewSubmission={handleReviewSubmission}
         onSaveBlpPeriod={handleSaveBlpPeriod}
-        onGenerateStudentAccount={handleGenerateStudentAccount}
       />
     );
   }

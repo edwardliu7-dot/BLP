@@ -17,8 +17,7 @@ import {
   Mic,
   PenLine,
   ListChecks,
-  Settings2,
-  UserPlus
+  Settings2
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, addMonths, subMonths, addDays, subDays, startOfDay } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -34,7 +33,6 @@ import ProfileModal from './modals/ProfileModal';
 import ConfirmModal from './modals/ConfirmModal';
 import GuruReviewSubmissionModal from './modals/GuruReviewSubmissionModal';
 import BlpPeriodModal from './modals/BlpPeriodModal';
-import GenerateStudentAccountModal from './modals/GenerateStudentAccountModal';
 
 const QURAN_ACTIVITY_ID = 'd5';
 const CHECKLIST_ACTIVITY_ID = 'rp1';
@@ -51,10 +49,9 @@ interface GuruDashboardProps {
   onDeleteStudent: (studentId: string) => Promise<void>;
   onReviewSubmission: (studentId: string, dateKey: string, activityId: string) => Promise<void>;
   onSaveBlpPeriod: (kelas: string, year: number, month: number, startDay: number, endDay: number) => Promise<void>;
-  onGenerateStudentAccount: (data: { name: string; kelas: string }) => Promise<{ id: string; username: string; password: string; name: string; kelas: string }>;
 }
 
-export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProfile, onDeleteStudent, onReviewSubmission, onSaveBlpPeriod, onGenerateStudentAccount }: GuruDashboardProps) {
+export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProfile, onDeleteStudent, onReviewSubmission, onSaveBlpPeriod }: GuruDashboardProps) {
   const [view, setView] = useState<'list' | 'detail' | 'presentation' | 'recap'>('list');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
@@ -62,7 +59,6 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
   const [deletingStudentId, setDeletingStudentId] = useState<string | null>(null);
   const [reviewingActivityId, setReviewingActivityId] = useState<string | null>(null);
   const [showPeriodModal, setShowPeriodModal] = useState(false);
-  const [showGenerateAccountModal, setShowGenerateAccountModal] = useState(false);
   const guru = auth.userId ? systemData.gurus[auth.userId] : null;
 
   // Filter students based on teacher's classes, sorted by class then name so
@@ -181,13 +177,6 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
               <Calculator size={18} />
               Rekap Nilai Bulanan
             </button>
-            <button
-              onClick={() => setShowGenerateAccountModal(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors"
-            >
-              <UserPlus size={18} />
-              Buat Akun Siswa
-            </button>
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -265,13 +254,6 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
             currentBio={guru.bio}
             onClose={() => setShowProfileModal(false)}
             onSave={(photoUrl, bio) => onUpdateProfile(photoUrl, bio)}
-          />
-        )}
-        {showGenerateAccountModal && (
-          <GenerateStudentAccountModal
-            kelasOptions={allowedClasses}
-            onClose={() => setShowGenerateAccountModal(false)}
-            onGenerate={onGenerateStudentAccount}
           />
         )}
         {deletingStudentId && (
