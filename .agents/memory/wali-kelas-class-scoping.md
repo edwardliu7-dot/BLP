@@ -1,26 +1,29 @@
 ---
 name: Wali kelas (homeroom teacher) class scoping
-description: How teacher accounts are scoped to a class, and a data-quality trap in the shared students/gurus tables.
+description: How BLP teacher accounts are scoped to a class, and a data-quality trap in the shared students/gurus tables.
 ---
 
-`gurus.kelas_diampu` (TEXT[]) determines which students a teacher account sees
-in GuruDashboard (`allowedClasses.includes(s.kelas)`). Each real wali kelas
-should be scoped to exactly one class; only genuine admin/overview accounts
-(confirmed with the user) are allowed to see all three classes.
+BLP login and student-data access must be scoped by `gurus.jabatan` (must include
+`'wali_kelas'`) and `gurus.wali_kelas_kelas` (a single class name) — never by
+`gurus.kelas_diampu` (TEXT[], the subjects-taught list used by the separate "tomat"
+app). A guru who teaches a subject but is not wali kelas for any class must be
+rejected at `/api/login/guru`, not merely hidden in the UI.
 
-**Why:** the students/gurus tables are shared with another app ("tomat") that
-also writes into them, and at one point wrote "VII Ibnu Battutah" (extra `t`)
-into `kelas_diampu` while student rows used the canonical "VII Ibnu Batutah" —
-that silently hid all of class VII from every teacher whose `kelas_diampu`
-had the typo, and separately most teacher accounts had all 3 classes assigned
-instead of just their own (a data-assignment bug, not a code bug).
+**Why:** `kelas_diampu` is shared with "tomat" (a different app, different login
+population — only Matematika teachers) and represents *subjects taught*, which is a
+completely different concept from *homeroom responsibility*. An earlier version of
+this app mistakenly scoped guru access using `kelas_diampu`, which let any subject
+teacher log into BLP and see every class they taught rather than only their homeroom
+class. The user explicitly corrected this: only wali kelas may use BLP, scoped to
+`wali_kelas_kelas`.
 
-**How to apply:** the server normalizes class-name spelling on every read
-(`normalizeKelas` in `server/index.ts`, matches after lowercasing, stripping
-punctuation, and collapsing repeated consecutive letters) so a future typo
-variant from the shared app can't hide a class again — but a *wrong class
-list* (e.g. a teacher assigned 3 classes when they should only see 1) is a
-data problem, not something normalization can fix. If a "wali kelas can't
-see students" or "sees the wrong students" report comes up again, check
-`gurus.kelas_diampu` in the DB first, and confirm the intended per-teacher
-class assignment with the user before changing it — don't guess from name/role.
+**How to apply:** `loadGuru` in `server/index.ts` returns `null` (treated as "not
+a valid BLP user") for any guru row where `isWaliKelas()` is false; the login route
+turns that into a 403 with a message telling the user only wali kelas can log in.
+`GuruProfile.kelasWali` (frontend/shared type) holds `[wali_kelas_kelas]`, and
+`GuruDashboard`'s `allowedClasses` reads from `auth.kelasWali`. Class-name spelling
+is still normalized on every read via `normalizeKelas` (lowercases, strips
+punctuation, collapses repeated letters) so a shared-app spelling variant (e.g.
+"Batutah" vs "Battutah") can't hide a class. If a "wali kelas can't see students" or
+"wrong guru can log in" report comes up again, check `jabatan` and
+`wali_kelas_kelas` in the DB first — don't assume `kelas_diampu` is relevant to BLP.
