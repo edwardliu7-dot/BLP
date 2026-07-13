@@ -212,6 +212,48 @@ export default function App() {
     }));
   };
 
+  const handleDeleteStudent = async (studentId: string) => {
+    const res = await fetch(`/api/students/${encodeURIComponent(studentId)}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.error || 'Gagal menghapus akun siswa');
+    }
+    setSystemData(prev => {
+      const { [studentId]: _removed, ...rest } = prev.students;
+      return { ...prev, students: rest };
+    });
+  };
+
+  const handleReviewSubmission = async (studentId: string, dateKey: string, activityId: string) => {
+    const res = await fetch(
+      `/api/students/${encodeURIComponent(studentId)}/records/${encodeURIComponent(dateKey)}/submissions/${encodeURIComponent(activityId)}/review`,
+      { method: 'PUT' }
+    );
+    if (!res.ok) return;
+    const updatedSubmission = await res.json();
+    setSystemData(prev => {
+      const student = prev.students[studentId];
+      const record = student?.records[dateKey];
+      if (!student || !record) return prev;
+      return {
+        ...prev,
+        students: {
+          ...prev.students,
+          [studentId]: {
+            ...student,
+            records: {
+              ...student.records,
+              [dateKey]: {
+                ...record,
+                submissions: { ...record.submissions, [activityId]: updatedSubmission },
+              },
+            },
+          },
+        },
+      };
+    });
+  };
+
   if (!isInitialized) return null;
 
   if (loadError) {
@@ -247,6 +289,8 @@ export default function App() {
         auth={auth}
         onLogout={handleLogout}
         onUpdateProfile={handleUpdateGuruProfile}
+        onDeleteStudent={handleDeleteStudent}
+        onReviewSubmission={handleReviewSubmission}
       />
     );
   }

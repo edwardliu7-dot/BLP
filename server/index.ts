@@ -388,6 +388,118 @@ app.put('/api/gurus/:id/profile', requireAuth('guru', 'id'), async (req, res) =>
   }
 });
 
+// Guru: delete a student's account permanently. Only allowed for a class the
+// requesting guru actually teaches (kelasDiampu), same scoping rule used for
+// viewing the class roster.
+app.delete('/api/students/:id', requireAuth('guru'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const guru = await loadGuru(req.session.userId!);
+    if (!guru) {
+      return res.status(404).json({ error: 'Akun guru tidak ditemukan' });
+    }
+    const studentRes = await pool.query('SELECT id, kelas FROM students WHERE id = $1', [id]);
+    if (studentRes.rowCount === 0) {
+      return res.status(404).json({ error: 'Siswa tidak ditemukan' });
+    }
+    const studentKelas = normalizeKelas(studentRes.rows[0].kelas);
+    if (!guru.kelasDiampu.includes(studentKelas)) {
+      return res.status(403).json({ error: 'Anda tidak memiliki akses untuk menghapus siswa dari kelas ini' });
+    }
+    await pool.query('DELETE FROM daily_records WHERE student_id = $1', [id]);
+    await pool.query('DELETE FROM students WHERE id = $1', [id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Failed to delete student', err);
+    res.status(500).json({ error: 'Gagal menghapus akun siswa' });
+  }
+});
+
+// Guru: mark a submission as reviewed (first-open only; re-opening does not
+// reset the clock). This starts the 7-day countdown before the uploaded
+// content (e.g. an audio recording) is auto-deleted by purgeExpiredSubmissions.
+app.put('/api/students/:id/records/:date/submissions/:activityId/review', requireAuth('guru'), async (req, res) => {
+  try {
+    const { id, date, activityId } = req.params;
+    const guru = await loadGuru(req.session.userId!);
+    if (!guru) {
+      return res.status(404).json({ error: 'Akun guru tidak ditemukan' });
+    }
+    const studentRes = await pool.query('SELECT kelas FROM students WHERE id = $1', [id]);
+    if (studentRes.rowCount === 0) {
+      return res.status(404).json({ error: 'Siswa tidak ditemukan' });
+    }
+    const studentKelas = normalizeKelas(studentRes.rows[0].kelas);
+    if (!guru.kelasDiampu.includes(studentKelas)) {
+      return res.status(403).json({ error: 'Anda tidak memiliki akses ke data siswa ini' });
+    }
+    const recordRes = await pool.query(
+      'SELECT submissions FROM daily_records WHERE student_id = $1 AND record_date = $2',
+      [id, date]
+    );
+    if (recordRes.rowCount === 0) {
+      return res.status(404).json({ error: 'Data BLP untuk tanggal ini tidak ditemukan' });
+    }
+    const submissions = recordRes.rows[0].submissions || {};
+    const submission = submissions[activityId];
+    if (!submission) {
+      return res.status(404).json({ error: 'Tidak ada tugas yang dikumpulkan untuk kegiatan ini' });
+    }
+    if (!submission.reviewedAt) {
+      submission.reviewedAt = new Date().toISOString();
+      submissions[activityId] = submission;
+      await pool.query(
+        'UPDATE daily_records SET submissions = $3::jsonb WHERE student_id = $1 AND record_date = $2',
+        [id, date, JSON.stringify(submissions)]
+      );
+    }
+    res.json(submission);
+  } catch (err) {
+    console.error('Failed to mark submission reviewed', err);
+    res.status(500).json({ error: 'Gagal menandai tugas sebagai ditinjau' });
+  }
+});
+
+const SUBMISSION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Uploaded submission content (e.g. base64 audio recordings) is deleted 7
+// days after a guru first reviews it, to avoid keeping large media forever.
+// The submission's metadata (recordedAt, quranRef, charCount) is kept so the
+// activity still shows as completed; only the heavy `content` is wiped.
+async function purgeExpiredSubmissions() {
+  const cutoff = Date.now() - SUBMISSION_EXPIRY_MS;
+  try {
+    const res = await pool.query(
+      `SELECT student_id, record_date, submissions FROM daily_records
+       WHERE submissions IS NOT NULL AND submissions::text LIKE '%reviewedAt%'`
+    );
+    for (const row of res.rows) {
+      const submissions = row.submissions || {};
+      let changed = false;
+      for (const activityId of Object.keys(submissions)) {
+        const sub = submissions[activityId];
+        if (sub && sub.content && sub.reviewedAt && !sub.expired) {
+          const reviewedTime = new Date(sub.reviewedAt).getTime();
+          if (!isNaN(reviewedTime) && reviewedTime <= cutoff) {
+            const { content, ...rest } = sub;
+            submissions[activityId] = { ...rest, expired: true };
+            changed = true;
+          }
+        }
+      }
+      if (changed) {
+        const dateKey = row.record_date.toISOString().slice(0, 10);
+        await pool.query(
+          'UPDATE daily_records SET submissions = $3::jsonb WHERE student_id = $1 AND record_date = $2',
+          [row.student_id, dateKey, JSON.stringify(submissions)]
+        );
+      }
+    }
+  } catch (err) {
+    console.error('Failed to purge expired submissions', err);
+  }
+}
+
 async function startServer() {
   const port = Number(process.env.PORT) || 5000;
 
@@ -412,6 +524,11 @@ async function startServer() {
   app.listen(port, '0.0.0.0', () => {
     console.log(`Server running on http://0.0.0.0:${port}`);
   });
+
+  // Run once at startup, then hourly, so expired attachments don't linger
+  // indefinitely if the server was down when they crossed the 7-day mark.
+  purgeExpiredSubmissions();
+  setInterval(purgeExpiredSubmissions, 60 * 60 * 1000);
 }
 
 startServer();

@@ -11,18 +11,28 @@ import {
   ChevronRight,
   Calculator,
   MessageCircle,
-  Mail
+  Mail,
+  Trash2,
+  Eye,
+  Mic,
+  PenLine,
+  ListChecks
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, addMonths, subMonths, addDays, subDays, startOfDay } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-import { BLP_CATEGORIES } from '../data/activities';
-import { SystemData, DailyRecord, AuthState } from '../types';
+import { BLP_CATEGORIES, PERLENGKAPAN_SEKOLAH_ITEMS } from '../data/activities';
+import { SystemData, DailyRecord, AuthState, ActivitySubmission } from '../types';
 import { downloadRekapPDF, downloadRekapExcel } from '../utils/rekapExport';
 import { FileDown } from 'lucide-react';
 import ProfileModal from './modals/ProfileModal';
+import ConfirmModal from './modals/ConfirmModal';
+import GuruReviewSubmissionModal from './modals/GuruReviewSubmissionModal';
+
+const QURAN_ACTIVITY_ID = 'd5';
+const CHECKLIST_ACTIVITY_ID = 'rp1';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -33,13 +43,17 @@ interface GuruDashboardProps {
   auth: AuthState;
   onLogout: () => void;
   onUpdateProfile: (photoUrl: string | null, bio: string) => Promise<void> | void;
+  onDeleteStudent: (studentId: string) => Promise<void>;
+  onReviewSubmission: (studentId: string, dateKey: string, activityId: string) => Promise<void>;
 }
 
-export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProfile }: GuruDashboardProps) {
+export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProfile, onDeleteStudent, onReviewSubmission }: GuruDashboardProps) {
   const [view, setView] = useState<'list' | 'detail' | 'presentation' | 'recap'>('list');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [deletingStudentId, setDeletingStudentId] = useState<string | null>(null);
+  const [reviewingActivityId, setReviewingActivityId] = useState<string | null>(null);
   const guru = auth.userId ? systemData.gurus[auth.userId] : null;
 
   // Filter students based on teacher's classes, sorted by class then name so
@@ -204,6 +218,13 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
                           >
                             <Mail size={16} />
                           </a>
+                          <button
+                            onClick={() => setDeletingStudentId(s.id)}
+                            className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-full transition-colors"
+                            title="Hapus Akun Siswa"
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                         <div className="text-right">
                           <span className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded-md text-xs font-bold">
@@ -226,6 +247,18 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
             currentBio={guru.bio}
             onClose={() => setShowProfileModal(false)}
             onSave={(photoUrl, bio) => onUpdateProfile(photoUrl, bio)}
+          />
+        )}
+        {deletingStudentId && (
+          <ConfirmModal
+            title="Hapus Akun Siswa?"
+            message={`Akun "${systemData.students[deletingStudentId]?.name}" beserta seluruh riwayat BLP-nya akan dihapus permanen. Akun yang sudah terhapus tidak dapat dikembalikan.`}
+            confirmLabel="Ya, Hapus Akun"
+            onClose={() => setDeletingStudentId(null)}
+            onConfirm={async () => {
+              await onDeleteStudent(deletingStudentId);
+              setDeletingStudentId(null);
+            }}
           />
         )}
       </div>
@@ -356,6 +389,11 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
             <div className="grid gap-3">
               {category.activities.map((activity) => {
                 const isDone = currentRecord.completedActivities.includes(activity.id);
+                const submission = currentRecord.submissions?.[activity.id];
+                const submissionIcon =
+                  activity.id === QURAN_ACTIVITY_ID ? <Mic size={14} /> :
+                  activity.id === CHECKLIST_ACTIVITY_ID ? <ListChecks size={14} /> :
+                  submission?.type === 'text' ? <PenLine size={14} /> : null;
                 return (
                   <div
                     key={activity.id}
@@ -382,6 +420,22 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
                         {activity.name}
                       </p>
                     </div>
+                    {!isPresentation && submission && (
+                      <button
+                        onClick={async () => {
+                          setReviewingActivityId(activity.id);
+                          if (!submission.reviewedAt) {
+                            await onReviewSubmission(selectedStudent.id, dateKey, activity.id);
+                          }
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold transition-colors flex-shrink-0"
+                        title="Lihat tugas yang dikumpulkan"
+                      >
+                        {submissionIcon}
+                        <Eye size={14} />
+                        Lihat
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -412,13 +466,20 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
     <div className="min-h-screen bg-slate-50 font-sans pb-20">
       {renderHeader(`Detail Siswa: ${selectedStudent.name}`, "Koreksi & Penilaian BLP")}
       
-      <div className="max-w-4xl mx-auto px-4 mt-4">
+      <div className="max-w-4xl mx-auto px-4 mt-4 flex flex-wrap gap-3">
         <button
           onClick={() => setView('presentation')}
           className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors"
         >
           <Presentation size={18} />
           Buka Mode Presentasi
+        </button>
+        <button
+          onClick={() => setDeletingStudentId(selectedStudent.id)}
+          className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors"
+        >
+          <Trash2 size={18} />
+          Hapus Akun Siswa
         </button>
       </div>
 
@@ -431,6 +492,31 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
           currentBio={guru.bio}
           onClose={() => setShowProfileModal(false)}
           onSave={(photoUrl, bio) => onUpdateProfile(photoUrl, bio)}
+        />
+      )}
+      {deletingStudentId && (
+        <ConfirmModal
+          title="Hapus Akun Siswa?"
+          message={`Akun "${systemData.students[deletingStudentId]?.name}" beserta seluruh riwayat BLP-nya akan dihapus permanen. Akun yang sudah terhapus tidak dapat dikembalikan.`}
+          confirmLabel="Ya, Hapus Akun"
+          onClose={() => setDeletingStudentId(null)}
+          onConfirm={async () => {
+            const deletedId = deletingStudentId;
+            await onDeleteStudent(deletedId);
+            setDeletingStudentId(null);
+            if (selectedStudentId === deletedId) {
+              setSelectedStudentId(null);
+              setView('list');
+            }
+          }}
+        />
+      )}
+      {reviewingActivityId && currentRecord.submissions?.[reviewingActivityId] && (
+        <GuruReviewSubmissionModal
+          activityName={BLP_CATEGORIES.flatMap(c => c.activities).find(a => a.id === reviewingActivityId)?.name || ''}
+          submission={currentRecord.submissions[reviewingActivityId]}
+          checklistItems={reviewingActivityId === CHECKLIST_ACTIVITY_ID ? PERLENGKAPAN_SEKOLAH_ITEMS : undefined}
+          onClose={() => setReviewingActivityId(null)}
         />
       )}
     </div>

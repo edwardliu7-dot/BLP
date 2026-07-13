@@ -31,6 +31,8 @@ export interface ActivitySubmission {
   items?: Record<string, boolean>; // for checklist submissions: item id -> checked
   quranRef?: QuranReadingRef; // for Quran reading (audio) submissions: which surah/ayat/page was read
   recordedAt: string; // ISO timestamp
+  reviewedAt?: string | null; // set the first time a guru opens/reviews this submission
+  expired?: boolean; // true once the uploaded content (e.g. audio) has been auto-deleted, 7 days after reviewedAt
 }
 
 export interface QuranBookmark {
