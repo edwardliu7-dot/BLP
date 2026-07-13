@@ -42,9 +42,15 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
   const [showProfileModal, setShowProfileModal] = useState(false);
   const guru = auth.userId ? systemData.gurus[auth.userId] : null;
 
-  // Filter students based on teacher's classes
+  // Filter students based on teacher's classes, sorted by class then name so
+  // the roster is stable and grouped instead of appearing in random DB order.
   const allowedClasses = auth.kelasDiampu || [];
-  const students = Object.values(systemData.students).filter(s => allowedClasses.includes(s.kelas));
+  const students = Object.values(systemData.students)
+    .filter(s => allowedClasses.includes(s.kelas))
+    .sort((a, b) => {
+      if (a.kelas !== b.kelas) return a.kelas.localeCompare(b.kelas, 'id');
+      return a.name.localeCompare(b.name, 'id');
+    });
   
   const dateKey = format(selectedDate, 'yyyy-MM-dd');
   const totalActivities = BLP_CATEGORIES.reduce((acc, cat) => acc + cat.activities.length, 0);

@@ -3,6 +3,7 @@ import session from 'express-session';
 import bcrypt from 'bcryptjs';
 import { pool } from './db';
 import type { UserProgress, GuruProfile, DailyRecord, SystemData } from '../src/types';
+import { KELAS_OPTIONS } from '../src/types';
 
 declare module 'express-session' {
   interface SessionData {
@@ -115,7 +116,7 @@ async function loadStudent(id: string): Promise<UserProgress | null> {
     id: row.id,
     username: row.username,
     name: row.name,
-    kelas: row.kelas,
+    kelas: normalizeKelas(row.kelas),
     email: row.email,
     whatsapp: row.whatsapp,
     photoUrl: row.photo_url,
@@ -123,6 +124,29 @@ async function loadStudent(id: string): Promise<UserProgress | null> {
     quranBookmark: row.quran_bookmark || null,
     records,
   };
+}
+
+// The students/gurus tables are shared with other apps (e.g. "tomat") that can
+// write slightly different spellings of a class name (e.g. "Battutah" vs the
+// canonical "Batutah" used throughout this app). Normalize on read so a typo
+// in kelas_diampu never silently hides an entire class's students from a wali
+// kelas's dashboard.
+// Lowercase, strip punctuation/spaces, and collapse repeated consecutive
+// letters (so "Battutah" and "Batutah" produce the same key) before matching
+// against the canonical class list.
+function kelasMatchKey(kelas: string): string {
+  return kelas
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .replace(/(.)\1+/g, '$1');
+}
+
+const KELAS_CANONICAL_BY_KEY: Record<string, string> = Object.fromEntries(
+  KELAS_OPTIONS.map(k => [kelasMatchKey(k), k])
+);
+
+function normalizeKelas(kelas: string): string {
+  return KELAS_CANONICAL_BY_KEY[kelasMatchKey(kelas)] || kelas;
 }
 
 async function loadGuru(id: string): Promise<GuruProfile | null> {
@@ -136,7 +160,7 @@ async function loadGuru(id: string): Promise<GuruProfile | null> {
     id: row.id,
     username: row.username,
     name: row.name,
-    kelasDiampu: row.kelas_diampu || [],
+    kelasDiampu: (row.kelas_diampu || []).map(normalizeKelas),
     photoUrl: row.photo_url,
     bio: row.bio,
   };
