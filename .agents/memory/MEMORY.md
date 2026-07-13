@@ -9,3 +9,4 @@
 - [Replit-to-GitHub push failures](replit-github-push-workaround.md) — gitPush/createPullRequest can fail with invalid-token errors even after reconnecting; a user-supplied classic PAT pushed via git CLI is a working fallback.
 - [Coolify healthcheck needs curl](coolify-healthcheck-curl.md) — Coolify rolls back an otherwise-healthy deploy if the image lacks curl/wget for its healthcheck probe.
 - [Quran reading feature](quran-reading-feature.md) — surah/ayat/page picker + per-student bookmark for the "Membaca Al-Qur'an" activity; bookmark lives on students table, not daily_records.
+- [Wali kelas class scoping](wali-kelas-class-scoping.md) — gurus.kelas_diampu typos/over-broad assignments can hide or leak students; server normalizes spelling but class-list correctness needs user confirmation.
