@@ -70,7 +70,10 @@ export interface GuruProfile {
   id: string;
   username: string;
   name: string;
-  kelasDiampu: string[];
+  // The class(es) this guru is the *wali kelas* (homeroom teacher) for — not
+  // the classes they teach a subject in. Only wali kelas may log into BLP,
+  // and their student data access is scoped to this, not "kelas diampu".
+  kelasWali: string[];
   password?: string;
   photoUrl?: string | null;
   bio?: string | null;
@@ -94,5 +97,5 @@ export interface AuthState {
   userId?: string;
   name?: string;
   kelas?: string;
-  kelasDiampu?: string[];
+  kelasWali?: string[];
 }

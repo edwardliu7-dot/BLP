@@ -68,7 +68,7 @@ export default function Login({ onLogin }: LoginProps) {
           return;
         }
         const guru = await res.json();
-        onLogin({ role: 'guru', userId: guru.id, name: guru.name, kelasDiampu: guru.kelasDiampu });
+        onLogin({ role: 'guru', userId: guru.id, name: guru.name, kelasWali: guru.kelasWali });
       }
     } catch (err) {
       setErrorMsg('Gagal terhubung ke server. Silakan coba lagi.');

@@ -63,7 +63,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
 
   // Filter students based on teacher's classes, sorted by class then name so
   // the roster is stable and grouped instead of appearing in random DB order.
-  const allowedClasses = auth.kelasDiampu || [];
+  const allowedClasses = auth.kelasWali || [];
   const students = Object.values(systemData.students)
     .filter(s => allowedClasses.includes(s.kelas))
     .sort((a, b) => {

@@ -149,18 +149,26 @@ function normalizeKelas(kelas: string): string {
   return KELAS_CANONICAL_BY_KEY[kelasMatchKey(kelas)] || kelas;
 }
 
+// Only a wali kelas (homeroom teacher) may use BLP, and their access is scoped
+// to the class they are wali kelas *for* (wali_kelas_kelas), never to the
+// subject classes they teach (kelas_diampu) — that scoping is "tomat"'s job.
+function isWaliKelas(row: { jabatan: string[] | null; wali_kelas_kelas: string | null }): boolean {
+  return !!(row.jabatan || []).includes('wali_kelas') && !!row.wali_kelas_kelas;
+}
+
 async function loadGuru(id: string): Promise<GuruProfile | null> {
   const res = await pool.query(
-    'SELECT id, username, name, kelas_diampu, photo_url, bio FROM gurus WHERE id = $1',
+    'SELECT id, username, name, jabatan, wali_kelas_kelas, photo_url, bio FROM gurus WHERE id = $1',
     [id]
   );
   if (res.rowCount === 0) return null;
   const row = res.rows[0];
+  if (!isWaliKelas(row)) return null;
   return {
     id: row.id,
     username: row.username,
     name: row.name,
-    kelasDiampu: (row.kelas_diampu || []).map(normalizeKelas),
+    kelasWali: [normalizeKelas(row.wali_kelas_kelas)],
     photoUrl: row.photo_url,
     bio: row.bio,
   };
@@ -230,7 +238,7 @@ app.put('/api/blp-periods', requireAuth('guru'), async (req, res) => {
       return res.status(404).json({ error: 'Akun guru tidak ditemukan' });
     }
     const targetKelas = normalizeKelas(kelas);
-    if (!guru.kelasDiampu.includes(targetKelas)) {
+    if (!guru.kelasWali.includes(targetKelas)) {
       return res.status(403).json({ error: 'Anda tidak memiliki akses untuk mengatur kelas ini' });
     }
     await pool.query(
@@ -283,7 +291,13 @@ app.post('/api/login/guru', async (req, res) => {
     if (!ok) {
       return res.status(401).json({ error: 'Password salah!' });
     }
+    // BLP is only for wali kelas (homeroom teachers) — a guru who only
+    // teaches a subject (kelas_diampu, used by the "tomat" app) but is not
+    // wali kelas for any class must not be able to log in here.
     const guru = await loadGuru(id);
+    if (!guru) {
+      return res.status(403).json({ error: 'Hanya wali kelas yang dapat login di aplikasi BLP. Akun Anda bukan wali kelas.' });
+    }
     req.session.userId = id;
     req.session.role = 'guru';
     res.json(guru);
@@ -411,7 +425,7 @@ app.put('/api/gurus/:id/profile', requireAuth('guru', 'id'), async (req, res) =>
 });
 
 // Guru: delete a student's account permanently. Only allowed for a class the
-// requesting guru actually teaches (kelasDiampu), same scoping rule used for
+// requesting guru is wali kelas for (kelasWali), same scoping rule used for
 // viewing the class roster.
 app.delete('/api/students/:id', requireAuth('guru'), async (req, res) => {
   try {
@@ -425,7 +439,7 @@ app.delete('/api/students/:id', requireAuth('guru'), async (req, res) => {
       return res.status(404).json({ error: 'Siswa tidak ditemukan' });
     }
     const studentKelas = normalizeKelas(studentRes.rows[0].kelas);
-    if (!guru.kelasDiampu.includes(studentKelas)) {
+    if (!guru.kelasWali.includes(studentKelas)) {
       return res.status(403).json({ error: 'Anda tidak memiliki akses untuk menghapus siswa dari kelas ini' });
     }
     // Clean up every table known to reference students(id) before deleting
@@ -467,7 +481,7 @@ app.put('/api/students/:id/records/:date/submissions/:activityId/review', requir
       return res.status(404).json({ error: 'Siswa tidak ditemukan' });
     }
     const studentKelas = normalizeKelas(studentRes.rows[0].kelas);
-    if (!guru.kelasDiampu.includes(studentKelas)) {
+    if (!guru.kelasWali.includes(studentKelas)) {
       return res.status(403).json({ error: 'Anda tidak memiliki akses ke data siswa ini' });
     }
     const recordRes = await pool.query(
