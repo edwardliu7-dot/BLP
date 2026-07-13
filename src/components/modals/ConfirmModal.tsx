@@ -31,7 +31,8 @@ export default function ConfirmModal({
       await onConfirm();
     } catch (err) {
       console.error(err);
-      setError('Gagal memproses. Silakan coba lagi.');
+      const message = err instanceof Error && err.message ? err.message : 'Gagal memproses. Silakan coba lagi.';
+      setError(message);
       setIsSubmitting(false);
     }
   };

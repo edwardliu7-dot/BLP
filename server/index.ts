@@ -406,12 +406,27 @@ app.delete('/api/students/:id', requireAuth('guru'), async (req, res) => {
     if (!guru.kelasDiampu.includes(studentKelas)) {
       return res.status(403).json({ error: 'Anda tidak memiliki akses untuk menghapus siswa dari kelas ini' });
     }
-    await pool.query('DELETE FROM daily_records WHERE student_id = $1', [id]);
-    await pool.query('DELETE FROM students WHERE id = $1', [id]);
+    // Clean up every table known to reference students(id) before deleting
+    // the student itself, so a stray foreign key from an unrelated feature
+    // (e.g. quiz scores in `nilai`) never silently blocks the deletion.
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM daily_records WHERE student_id = $1', [id]);
+      await client.query('DELETE FROM nilai WHERE student_id = $1', [id]);
+      await client.query('DELETE FROM students WHERE id = $1', [id]);
+      await client.query('COMMIT');
+    } catch (innerErr) {
+      await client.query('ROLLBACK');
+      throw innerErr;
+    } finally {
+      client.release();
+    }
     res.json({ ok: true });
   } catch (err) {
     console.error('Failed to delete student', err);
-    res.status(500).json({ error: 'Gagal menghapus akun siswa' });
+    const detail = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: `Gagal menghapus akun siswa: ${detail}` });
   }
 });
 
