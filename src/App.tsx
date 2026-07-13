@@ -74,14 +74,6 @@ export default function App() {
     localStorage.setItem(AUTH_KEY, JSON.stringify(newAuth));
   };
 
-  const handleRegisterSiswa = (data: UserProgress) => {
-    setSystemData(prev => ({
-      ...prev,
-      students: { ...prev.students, [data.id]: data }
-    }));
-    handleLogin({ role: 'siswa', userId: data.id, name: data.name, kelas: data.kelas });
-  };
-
   const handleLogout = () => {
     setAuth({ role: null });
     localStorage.removeItem(AUTH_KEY);
@@ -277,6 +269,38 @@ export default function App() {
     }));
   };
 
+  const handleGenerateStudentAccount = async (data: { name: string; kelas: string; email?: string; whatsapp?: string }) => {
+    const res = await fetch('/api/guru/students/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.error || 'Gagal membuat akun siswa');
+    }
+    const created = await res.json();
+    setSystemData(prev => ({
+      ...prev,
+      students: {
+        ...prev.students,
+        [created.id]: {
+          id: created.id,
+          username: created.username,
+          name: created.name,
+          kelas: created.kelas,
+          email: data.email || '',
+          whatsapp: data.whatsapp || '',
+          photoUrl: null,
+          bio: null,
+          quranBookmark: null,
+          records: {},
+        },
+      },
+    }));
+    return created as { id: string; username: string; password: string; name: string; kelas: string };
+  };
+
   if (!isInitialized) return null;
 
   if (loadError) {
@@ -289,7 +313,7 @@ export default function App() {
 
   if (auth.role === 'siswa' && auth.userId) {
     const user = systemData.students[auth.userId];
-    if (!user) return <Login onLogin={handleLogin} onRegisterSiswa={handleRegisterSiswa} />; // Edge case fallback
+    if (!user) return <Login onLogin={handleLogin} />; // Edge case fallback
     return (
       <SiswaDashboard 
         user={user}
@@ -316,9 +340,10 @@ export default function App() {
         onDeleteStudent={handleDeleteStudent}
         onReviewSubmission={handleReviewSubmission}
         onSaveBlpPeriod={handleSaveBlpPeriod}
+        onGenerateStudentAccount={handleGenerateStudentAccount}
       />
     );
   }
 
-  return <Login onLogin={handleLogin} onRegisterSiswa={handleRegisterSiswa} />;
+  return <Login onLogin={handleLogin} />;
 }

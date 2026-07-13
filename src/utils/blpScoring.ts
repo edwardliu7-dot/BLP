@@ -42,7 +42,7 @@ export interface BlpPeriod {
 }
 
 // Key used to store/look up a class's active BLP period for a given month in
-// SystemData.blpPeriods, e.g. "VII Ibnu Batutah__2026-07".
+// SystemData.blpPeriods, e.g. "VII Ibnu Battutah__2026-07".
 export function getBlpPeriodKey(kelas: string, year: number, month: number): string {
   return `${kelas}__${year}-${String(month).padStart(2, '0')}`;
 }

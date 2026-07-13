@@ -1,46 +1,28 @@
 import { useState, type FormEvent } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { GraduationCap, User, AtSign, Lock, ArrowRight, Mail, Phone, BookOpen, KeyRound } from 'lucide-react';
-import { AuthState, UserProgress, KELAS_OPTIONS } from '../types';
+import { motion } from 'motion/react';
+import { GraduationCap, AtSign, ArrowRight, KeyRound } from 'lucide-react';
+import { AuthState } from '../types';
 
 interface LoginProps {
   onLogin: (auth: AuthState) => void;
-  onRegisterSiswa: (data: UserProgress) => void;
 }
 
-export default function Login({ onLogin, onRegisterSiswa }: LoginProps) {
+export default function Login({ onLogin }: LoginProps) {
   const [role, setRole] = useState<'siswa' | 'guru'>('siswa');
-  const [mode, setMode] = useState<'login' | 'register'>('login');
 
   const [username, setUsername] = useState('');
-  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
-  const [email, setEmail] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
-  const [kelas, setKelas] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resetForm = () => {
     setUsername('');
-    setName('');
     setPassword('');
-    setEmail('');
-    setWhatsapp('');
-    setKelas('');
     setErrorMsg('');
-  };
-
-  const handleModeSwitch = (newMode: 'login' | 'register') => {
-    setMode(newMode);
-    resetForm();
   };
 
   const handleRoleSwitch = (newRole: 'siswa' | 'guru') => {
     setRole(newRole);
-    if (newRole === 'guru') {
-      setMode('login');
-    }
     resetForm();
   };
 
@@ -57,73 +39,41 @@ export default function Login({ onLogin, onRegisterSiswa }: LoginProps) {
     e.preventDefault();
     setErrorMsg('');
 
-    if (mode === 'register') {
-      if (!username.trim() || !name.trim() || !password.trim()) {
-        setErrorMsg('Username, Nama, dan Password wajib diisi');
-        return;
-      }
-
-      if (!kelas.trim() || !email.trim() || !whatsapp.trim()) {
-        setErrorMsg('Semua field wajib diisi untuk siswa');
-        return;
-      }
-
-      setIsSubmitting(true);
-      try {
-        const res = await fetch('/api/students', {
+    if (!username.trim() || !password.trim()) {
+      setErrorMsg('Username dan Password wajib diisi');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      if (role === 'siswa') {
+        const res = await fetch('/api/login/siswa', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, name, kelas, email, whatsapp, password }),
+          body: JSON.stringify({ username, password }),
         });
         if (!res.ok) {
-          setErrorMsg(await parseErrorMessage(res, 'Gagal mendaftarkan siswa'));
+          setErrorMsg(await parseErrorMessage(res, 'Username atau password salah. Silakan hubungi wali kelas Anda.'));
           return;
         }
         const student = await res.json();
-        onRegisterSiswa(student);
-      } catch (err) {
-        setErrorMsg('Gagal terhubung ke server. Silakan coba lagi.');
-      } finally {
-        setIsSubmitting(false);
-      }
-    } else {
-      // Login flow
-      if (!username.trim() || !password.trim()) {
-        setErrorMsg('Username dan Password wajib diisi');
-        return;
-      }
-      setIsSubmitting(true);
-      try {
-        if (role === 'siswa') {
-          const res = await fetch('/api/login/siswa', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password }),
-          });
-          if (!res.ok) {
-            setErrorMsg(await parseErrorMessage(res, 'Gagal login'));
-            return;
-          }
-          const student = await res.json();
-          onLogin({ role: 'siswa', userId: student.id, name: student.name, kelas: student.kelas });
-        } else {
-          const res = await fetch('/api/login/guru', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password }),
-          });
-          if (!res.ok) {
-            setErrorMsg(await parseErrorMessage(res, 'Gagal login'));
-            return;
-          }
-          const guru = await res.json();
-          onLogin({ role: 'guru', userId: guru.id, name: guru.name, kelasDiampu: guru.kelasDiampu });
+        onLogin({ role: 'siswa', userId: student.id, name: student.name, kelas: student.kelas });
+      } else {
+        const res = await fetch('/api/login/guru', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        if (!res.ok) {
+          setErrorMsg(await parseErrorMessage(res, 'Gagal login'));
+          return;
         }
-      } catch (err) {
-        setErrorMsg('Gagal terhubung ke server. Silakan coba lagi.');
-      } finally {
-        setIsSubmitting(false);
+        const guru = await res.json();
+        onLogin({ role: 'guru', userId: guru.id, name: guru.name, kelasDiampu: guru.kelasDiampu });
       }
+    } catch (err) {
+      setErrorMsg('Gagal terhubung ke server. Silakan coba lagi.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -143,10 +93,10 @@ export default function Login({ onLogin, onRegisterSiswa }: LoginProps) {
         </div>
 
         <div className="p-8">
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mb-4 transition-colors">
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mb-6 transition-colors">
             <button
               type="button"
-              onClick={() => setRole('siswa')}
+              onClick={() => handleRoleSwitch('siswa')}
               className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${role === 'siswa' ? 'bg-white dark:bg-slate-700 shadow text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
             >
               Siswa
@@ -159,25 +109,6 @@ export default function Login({ onLogin, onRegisterSiswa }: LoginProps) {
               Guru
             </button>
           </div>
-
-          {role === 'siswa' && (
-            <div className="flex justify-center gap-4 mb-6 border-b border-slate-200 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => handleModeSwitch('login')}
-                className={`pb-2 text-sm font-bold border-b-2 transition-all ${mode === 'login' ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-              >
-                Masuk
-              </button>
-              <button
-                type="button"
-                onClick={() => handleModeSwitch('register')}
-                className={`pb-2 text-sm font-bold border-b-2 transition-all ${mode === 'register' ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-              >
-                Daftar Baru
-              </button>
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
 
@@ -204,24 +135,6 @@ export default function Login({ onLogin, onRegisterSiswa }: LoginProps) {
               </div>
             </div>
 
-            {mode === 'register' && (
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Nama Lengkap</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-slate-400" />
-                  </div>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Masukkan nama lengkap"
-                    className="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white transition-colors"
-                  />
-                </div>
-              </div>
-            )}
-
             <div className="space-y-1">
               <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Password</label>
               <div className="relative">
@@ -233,81 +146,25 @@ export default function Login({ onLogin, onRegisterSiswa }: LoginProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Masukkan password"
-                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  autoComplete="current-password"
                   className="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white transition-colors"
                 />
               </div>
             </div>
-
-            {mode === 'register' && (
-              <AnimatePresence mode="popLayout">
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-4 overflow-hidden"
-                >
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kelas</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <BookOpen className="h-5 w-5 text-slate-400" />
-                      </div>
-                      <select
-                        value={kelas}
-                        onChange={(e) => setKelas(e.target.value)}
-                        className="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white transition-colors appearance-none"
-                      >
-                        <option value="">Pilih kelas</option>
-                        {KELAS_OPTIONS.map(opt => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Email</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Mail className="h-5 w-5 text-slate-400" />
-                      </div>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Email aktif"
-                        className="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white transition-colors"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">No. WhatsApp</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Phone className="h-5 w-5 text-slate-400" />
-                      </div>
-                      <input
-                        type="tel"
-                        value={whatsapp}
-                        onChange={(e) => setWhatsapp(e.target.value)}
-                        placeholder="Mulai dengan 62xxx"
-                        className="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white transition-colors"
-                      />
-                    </div>
-                  </div>
-                </motion.div>
-              </AnimatePresence>
-            )}
 
             <button
               type="submit"
               disabled={isSubmitting}
               className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-not-allowed text-white p-3 rounded-xl font-bold transition-all mt-6"
             >
-              {isSubmitting ? 'Memproses...' : (mode === 'login' ? 'Masuk' : 'Daftar')} <ArrowRight size={18} />
+              {isSubmitting ? 'Memproses...' : 'Masuk'} <ArrowRight size={18} />
             </button>
+
+            {role === 'siswa' && (
+              <p className="text-xs text-slate-400 dark:text-slate-500 text-center pt-1">
+                Belum punya akun? Hubungi wali kelas Anda untuk mendapatkan username &amp; password.
+              </p>
+            )}
           </form>
         </div>
       </motion.div>

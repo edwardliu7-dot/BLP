@@ -44,6 +44,49 @@ function toId(username: string) {
   return normalizeUsername(username).toLowerCase().replace(/\s+/g, '-');
 }
 
+// Turns a student's full name into a base username slug (letters/digits only,
+// space-separated words joined with a single space so it still reads like a
+// name, e.g. "Karina Salsabila" -> "karina salsabila"). Falls back to "siswa"
+// if the name has no usable characters (e.g. purely symbols/emoji).
+function slugifyName(name: string): string {
+  const cleaned = name
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+  return cleaned || 'siswa';
+}
+
+// Random, easy-to-read password: uppercase letters + digits, excluding
+// visually-ambiguous characters (0/O, 1/I/L) so it's easy for a student to
+// type in correctly from a handwritten/shared note.
+const PASSWORD_CHARSET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function generatePassword(length = 8): string {
+  let out = '';
+  for (let i = 0; i < length; i++) {
+    out += PASSWORD_CHARSET[Math.floor(Math.random() * PASSWORD_CHARSET.length)];
+  }
+  return out;
+}
+
+// Finds a free username derived from the student's name, appending a numeric
+// suffix on collision (e.g. "budi", "budi 2", "budi 3", ...).
+async function generateUniqueUsername(name: string): Promise<{ username: string; id: string }> {
+  const base = slugifyName(name);
+  let attempt = 0;
+  while (true) {
+    attempt++;
+    const candidateUsername = attempt === 1 ? base : `${base} ${attempt}`;
+    const candidateId = toId(candidateUsername);
+    const existing = await pool.query('SELECT id FROM students WHERE id = $1', [candidateId]);
+    if ((existing.rowCount ?? 0) === 0) {
+      return { username: candidateUsername, id: candidateId };
+    }
+  }
+}
+
 // School operates on Indonesian (WIB/Jakarta) time regardless of the
 // server's own timezone, so "today" for BLP purposes must be computed in
 // Asia/Jakarta rather than the server's local/UTC clock.
@@ -127,8 +170,8 @@ async function loadStudent(id: string): Promise<UserProgress | null> {
 }
 
 // The students/gurus tables are shared with other apps (e.g. "tomat") that can
-// write slightly different spellings of a class name (e.g. "Battutah" vs the
-// canonical "Batutah" used throughout this app). Normalize on read so a typo
+// write slightly different spellings of a class name (e.g. "Batutah" vs the
+// canonical "Battutah" used throughout this app). Normalize on read so a typo
 // in kelas_diampu never silently hides an entire class's students from a wali
 // kelas's dashboard.
 // Lowercase, strip punctuation/spaces, and collapse repeated consecutive
@@ -247,37 +290,36 @@ app.put('/api/blp-periods', requireAuth('guru'), async (req, res) => {
   }
 });
 
-// Register siswa
-app.post('/api/students', async (req, res) => {
+// Generate a new student account. Students can no longer self-register —
+// only a wali kelas (homeroom teacher) can create an account for their own
+// class, and only the name is required; username & password are generated
+// automatically and returned once so the guru can hand them to the student.
+app.post('/api/guru/students/generate', requireAuth('guru'), async (req, res) => {
   try {
-    const { username, name, kelas, email, whatsapp, password } = req.body || {};
-    if (!username || !String(username).trim() || !name || !String(name).trim() || !password || !String(password).trim()) {
-      return res.status(400).json({ error: 'Username, Nama, dan Password wajib diisi' });
+    const { name, kelas, email, whatsapp } = req.body || {};
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: 'Nama siswa wajib diisi' });
     }
-    if (!kelas || !email || !whatsapp) {
-      return res.status(400).json({ error: 'Semua field wajib diisi untuk siswa' });
+    const guru = await loadGuru(req.session.userId!);
+    if (!guru) {
+      return res.status(404).json({ error: 'Akun guru tidak ditemukan' });
     }
-    if (!USERNAME_RE.test(normalizeUsername(String(username)))) {
-      return res.status(400).json({ error: 'Username hanya boleh berisi huruf, angka, spasi, titik, underscore, dan tanda hubung (3-50 karakter)' });
+    const targetKelas = kelas ? normalizeKelas(String(kelas)) : guru.kelasDiampu[0];
+    if (!targetKelas || !guru.kelasDiampu.includes(targetKelas)) {
+      return res.status(403).json({ error: 'Anda tidak memiliki akses untuk membuat akun di kelas ini' });
     }
-    const cleanUsername = normalizeUsername(String(username));
-    const id = toId(cleanUsername);
-    const existing = await pool.query('SELECT id FROM students WHERE id = $1', [id]);
-    if ((existing.rowCount ?? 0) > 0) {
-      return res.status(409).json({ error: 'Username ini sudah terdaftar. Silakan login atau gunakan username lain.' });
-    }
-    const passwordHash = await bcrypt.hash(String(password), 10);
+    const cleanName = String(name).trim();
+    const { username, id } = await generateUniqueUsername(cleanName);
+    const plainPassword = generatePassword();
+    const passwordHash = await bcrypt.hash(plainPassword, 10);
     await pool.query(
       'INSERT INTO students (id, username, name, kelas, email, whatsapp, password) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-      [id, cleanUsername, name, kelas, email, whatsapp, passwordHash]
+      [id, username, cleanName, targetKelas, email ? String(email).trim() : '', whatsapp ? String(whatsapp).trim() : '', passwordHash]
     );
-    const student = await loadStudent(id);
-    req.session.userId = id;
-    req.session.role = 'siswa';
-    res.status(201).json(student);
+    res.status(201).json({ id, username, password: plainPassword, name: cleanName, kelas: targetKelas });
   } catch (err) {
-    console.error('Failed to register student', err);
-    res.status(500).json({ error: 'Gagal mendaftarkan siswa' });
+    console.error('Failed to generate student account', err);
+    res.status(500).json({ error: 'Gagal membuat akun siswa' });
   }
 });
 
@@ -288,11 +330,11 @@ app.post('/api/login/siswa', async (req, res) => {
     const id = toId(String(username || ''));
     const passRes = await pool.query('SELECT password FROM students WHERE id = $1', [id]);
     if (passRes.rowCount === 0) {
-      return res.status(404).json({ error: 'Username Anda belum terdaftar. Silakan pindah ke tab "Daftar Baru".' });
+      return res.status(404).json({ error: 'Username atau password salah. Jika Anda belum memiliki akun, silakan hubungi wali kelas Anda.' });
     }
     const ok = await verifyPassword(String(password || ''), passRes.rows[0].password);
     if (!ok) {
-      return res.status(401).json({ error: 'Password salah!' });
+      return res.status(401).json({ error: 'Username atau password salah. Silakan hubungi wali kelas Anda jika Anda lupa akun.' });
     }
     const student = await loadStudent(id);
     req.session.userId = id;

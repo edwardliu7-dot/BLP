@@ -50,7 +50,7 @@ export interface DailyRecord {
   submissions?: Record<string, ActivitySubmission>; // activityId -> submission
 }
 
-export const KELAS_OPTIONS = ['VII Ibnu Batutah', 'VIII Ibnu Sina', 'IX Al Khawarizmi'] as const;
+export const KELAS_OPTIONS = ['VII Ibnu Battutah', 'VIII Ibnu Sina', 'IX Al Khawarizmi'] as const;
 
 export interface UserProgress {
   id: string;
