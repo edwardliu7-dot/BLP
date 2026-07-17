@@ -307,6 +307,27 @@ app.post('/api/login/guru', async (req, res) => {
   }
 });
 
+// Return the current session's user profile (used to refresh stale localStorage auth)
+app.get('/api/auth/me', async (req, res) => {
+  try {
+    if (!req.session.userId || !req.session.role) {
+      return res.status(401).json({ error: 'Not logged in' });
+    }
+    if (req.session.role === 'guru') {
+      const guru = await loadGuru(req.session.userId);
+      if (!guru) return res.status(403).json({ error: 'Not a wali kelas' });
+      return res.json({ role: 'guru', userId: guru.id, name: guru.name, kelasWali: guru.kelasWali });
+    } else {
+      const student = await loadStudent(req.session.userId);
+      if (!student) return res.status(404).json({ error: 'Student not found' });
+      return res.json({ role: 'siswa', userId: student.id, name: student.name, kelas: student.kelas });
+    }
+  } catch (err) {
+    console.error('Failed to fetch auth/me', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Logout
 app.post('/api/logout', (req, res) => {
   req.session.destroy(() => {

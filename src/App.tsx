@@ -33,11 +33,28 @@ export default function App() {
         setLoadError('Gagal terhubung ke server. Silakan muat ulang halaman.');
       }
 
-      // 2. Load Auth State (session only, not source of truth)
+      // 2. Load Auth State — restore from localStorage then validate/refresh
+      //    against the server so stale cached values (e.g. missing kelasWali)
+      //    don't silently break the dashboard.
       const storedAuth = localStorage.getItem(AUTH_KEY);
       if (storedAuth) {
         try {
-          setAuth(JSON.parse(storedAuth));
+          const parsed: AuthState = JSON.parse(storedAuth);
+          // A guru session is stale if kelasWali is missing — fetch fresh data.
+          const needsRefresh = parsed.role === 'guru' && (!parsed.kelasWali || parsed.kelasWali.length === 0);
+          if (needsRefresh) {
+            const meRes = await fetch('/api/auth/me');
+            if (meRes.ok) {
+              const fresh: AuthState = await meRes.json();
+              setAuth(fresh);
+              localStorage.setItem(AUTH_KEY, JSON.stringify(fresh));
+            } else {
+              // Session expired or invalid — clear and force re-login
+              localStorage.removeItem(AUTH_KEY);
+            }
+          } else {
+            setAuth(parsed);
+          }
         } catch (e) {}
       }
 
