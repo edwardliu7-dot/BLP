@@ -24,6 +24,6 @@ turns that into a 403 with a message telling the user only wali kelas can log in
 `GuruDashboard`'s `allowedClasses` reads from `auth.kelasWali`. Class-name spelling
 is still normalized on every read via `normalizeKelas` (lowercases, strips
 punctuation, collapses repeated letters) so a shared-app spelling variant (e.g.
-"Batutah" vs "Battutah") can't hide a class. If a "wali kelas can't see students" or
+"Batutah" vs "Batuttah") can't hide a class. If a "wali kelas can't see students" or
 "wrong guru can log in" report comes up again, check `jabatan` and
 `wali_kelas_kelas` in the DB first — don't assume `kelas_diampu` is relevant to BLP.

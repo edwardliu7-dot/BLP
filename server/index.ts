@@ -128,11 +128,11 @@ async function loadStudent(id: string): Promise<UserProgress | null> {
 
 // The students/gurus tables are shared with other apps (e.g. "tomat") that can
 // write slightly different spellings of a class name (e.g. "Batutah" vs the
-// canonical "Battutah" used throughout this app). Normalize on read so a typo
+// canonical "Batuttah" used throughout this app). Normalize on read so a typo
 // in kelas_diampu never silently hides an entire class's students from a wali
 // kelas's dashboard.
 // Lowercase, strip punctuation/spaces, and collapse repeated consecutive
-// letters (so "Battutah" and "Batutah" produce the same key) before matching
+// letters (so "Batuttah" and "Batutah" produce the same key) before matching
 // against the canonical class list.
 function kelasMatchKey(kelas: string): string {
   return kelas
