@@ -225,7 +225,7 @@ export default function SiswaDashboard({
                 {user.photoUrl ? (
                   <img src={user.photoUrl} alt={user.name} className="w-full h-full object-cover" />
                 ) : (
-                  <GraduationCap className="text-emerald-700 dark:text-emerald-400 w-6 h-6" />
+                  <img src="/logo.png" alt="Logo" className="w-full h-full object-contain p-1" />
                 )}
               </button>
               <div>

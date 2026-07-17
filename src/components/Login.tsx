@@ -85,8 +85,8 @@ export default function Login({ onLogin }: LoginProps) {
         className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-xl overflow-hidden border border-slate-200 dark:border-slate-800"
       >
         <div className="bg-emerald-700 dark:bg-emerald-900 p-8 text-white text-center transition-colors">
-          <div className="bg-white dark:bg-slate-800 w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-4 transition-colors">
-            <GraduationCap className="text-emerald-700 dark:text-emerald-400 w-8 h-8" />
+          <div className="w-20 h-20 rounded-2xl mx-auto flex items-center justify-center mb-4 overflow-hidden">
+            <img src="/logo.png" alt="BLP Harian Logo" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">BLP Harian</h1>
           <p className="text-emerald-100 dark:text-emerald-300 mt-1">SMP TISA Islamic School</p>
