@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { AuthState, SystemData, DailyRecord, UserProgress, GuruProfile, QuranBookmark } from './types';
 import Login from './components/Login';
+import LoadingScreen from './components/LoadingScreen';
 
 // Lazy-load dashboards so the login page bundle is tiny and each role only
 // downloads its own code.
@@ -281,9 +282,8 @@ export default function App() {
     }));
   };
 
-  // Still booting (checking localStorage / restoring session) — render nothing
-  // so there is no flash of login before the dashboard appears.
-  if (status === 'booting') return null;
+  // Still booting (checking localStorage / restoring session)
+  if (status === 'booting') return <LoadingScreen message="Memeriksa sesi..." />;
 
   if (status === 'login') {
     return <Login onLogin={handleLogin} />;
