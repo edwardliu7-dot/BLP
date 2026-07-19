@@ -4,7 +4,7 @@ import { GraduationCap, AtSign, ArrowRight, KeyRound } from 'lucide-react';
 import { AuthState } from '../types';
 
 interface LoginProps {
-  onLogin: (auth: AuthState) => void;
+  onLogin: (auth: AuthState) => Promise<void>;
 }
 
 export default function Login({ onLogin }: LoginProps) {

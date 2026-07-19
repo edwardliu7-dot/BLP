@@ -1,99 +1,94 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { AuthState, SystemData, DailyRecord, UserProgress, GuruProfile, QuranBookmark } from './types';
 import Login from './components/Login';
-import SiswaDashboard from './components/SiswaDashboard';
-import GuruDashboard from './components/GuruDashboard';
+
+// Lazy-load dashboards so the login page bundle is tiny and each role only
+// downloads its own code.
+const SiswaDashboard = lazy(() => import('./components/SiswaDashboard'));
+const GuruDashboard = lazy(() => import('./components/GuruDashboard'));
 
 const THEME_KEY = 'blp_theme';
 const REMINDERS_KEY = 'blp_reminders';
 const AUTH_KEY = 'blp_auth_state';
 
+type AppStatus = 'booting' | 'login' | 'ready';
+
 export default function App() {
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [status, setStatus] = useState<AppStatus>('booting');
   const [systemData, setSystemData] = useState<SystemData>({ students: {}, gurus: {}, blpPeriods: {} });
   const [auth, setAuth] = useState<AuthState>({ role: null });
   const [darkMode, setDarkMode] = useState(false);
   const [remindersEnabled, setRemindersEnabled] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const fetchSystemData = useCallback(async () => {
-    const res = await fetch('/api/system-data');
-    if (!res.ok) throw new Error('Gagal memuat data dari server');
-    const data: SystemData = await res.json();
-    setSystemData(data);
+  // Fetch data scoped to the currently logged-in user (via session cookie).
+  const fetchDashboardData = useCallback(async (): Promise<SystemData> => {
+    const res = await fetch('/api/me/dashboard-data');
+    if (!res.ok) throw Object.assign(new Error('fetch failed'), { status: res.status });
+    return res.json();
   }, []);
 
   useEffect(() => {
+    // Apply theme synchronously before any async work so there is no flash.
+    const storedTheme = localStorage.getItem(THEME_KEY);
+    if (storedTheme === 'dark' || (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      setDarkMode(true);
+      document.documentElement.classList.add('dark');
+    }
+    const storedReminders = localStorage.getItem(REMINDERS_KEY);
+    if (storedReminders === 'true' && 'Notification' in window && Notification.permission === 'granted') {
+      setRemindersEnabled(true);
+    }
+
+    const storedAuth = localStorage.getItem(AUTH_KEY);
+    if (!storedAuth) {
+      // No stored session — show login immediately, no server round-trip needed.
+      setStatus('login');
+      return;
+    }
+
+    // Stored session found — validate it by fetching scoped dashboard data.
     (async () => {
-      // 1. Load System Data from database
       try {
-        await fetchSystemData();
-      } catch (e) {
-        console.error('Failed to load system data', e);
-        setLoadError('Gagal terhubung ke server. Silakan muat ulang halaman.');
+        const parsed: AuthState = JSON.parse(storedAuth);
+        const data = await fetchDashboardData();
+        setSystemData(data);
+        setAuth(parsed);
+        setStatus('ready');
+      } catch {
+        // Session expired or invalid — clear and show login.
+        localStorage.removeItem(AUTH_KEY);
+        setStatus('login');
       }
-
-      // 2. Load Auth State — restore from localStorage then validate/refresh
-      //    against the server so stale cached values (e.g. missing kelasWali)
-      //    don't silently break the dashboard.
-      const storedAuth = localStorage.getItem(AUTH_KEY);
-      if (storedAuth) {
-        try {
-          const parsed: AuthState = JSON.parse(storedAuth);
-          // A guru session is stale if kelasWali is missing — fetch fresh data.
-          const needsRefresh = parsed.role === 'guru' && (!parsed.kelasWali || parsed.kelasWali.length === 0);
-          if (needsRefresh) {
-            const meRes = await fetch('/api/auth/me');
-            if (meRes.ok) {
-              const fresh: AuthState = await meRes.json();
-              setAuth(fresh);
-              localStorage.setItem(AUTH_KEY, JSON.stringify(fresh));
-            } else {
-              // Session expired or invalid — clear and force re-login
-              localStorage.removeItem(AUTH_KEY);
-            }
-          } else {
-            setAuth(parsed);
-          }
-        } catch (e) {}
-      }
-
-      // 3. Load Preferences
-      const storedTheme = localStorage.getItem(THEME_KEY);
-      if (storedTheme === 'dark' || (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        setDarkMode(true);
-      }
-
-      const storedReminders = localStorage.getItem(REMINDERS_KEY);
-      if (storedReminders === 'true' && 'Notification' in window && Notification.permission === 'granted') {
-        setRemindersEnabled(true);
-      }
-
-      setIsInitialized(true);
     })();
-  }, [fetchSystemData]);
+  }, [fetchDashboardData]);
 
   // Handle Theme
   useEffect(() => {
-    if (isInitialized) {
-      if (darkMode) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem(THEME_KEY, 'dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem(THEME_KEY, 'light');
-      }
+    if (status === 'booting') return;
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem(THEME_KEY, 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem(THEME_KEY, 'light');
     }
-  }, [darkMode, isInitialized]);
+  }, [darkMode, status]);
 
-  const handleLogin = (newAuth: AuthState) => {
+  // Called by Login after the login API succeeds.
+  // Returns a Promise so Login can keep its spinner running until data is ready.
+  const handleLogin = useCallback(async (newAuth: AuthState) => {
+    const data = await fetchDashboardData();
+    setSystemData(data);
     setAuth(newAuth);
     localStorage.setItem(AUTH_KEY, JSON.stringify(newAuth));
-  };
+    setStatus('ready');
+  }, [fetchDashboardData]);
 
   const handleLogout = () => {
     setAuth({ role: null });
+    setSystemData({ students: {}, gurus: {}, blpPeriods: {} });
     localStorage.removeItem(AUTH_KEY);
+    setStatus('login');
   };
 
   // Notifications
@@ -286,46 +281,49 @@ export default function App() {
     }));
   };
 
-  if (!isInitialized) return null;
+  // Still booting (checking localStorage / restoring session) — render nothing
+  // so there is no flash of login before the dashboard appears.
+  if (status === 'booting') return null;
 
-  if (loadError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
-        <div className="text-center text-red-600 dark:text-red-400 font-medium">{loadError}</div>
-      </div>
-    );
+  if (status === 'login') {
+    return <Login onLogin={handleLogin} />;
   }
 
+  // status === 'ready'
   if (auth.role === 'siswa' && auth.userId) {
     const user = systemData.students[auth.userId];
-    if (!user) return <Login onLogin={handleLogin} />; // Edge case fallback
+    if (!user) return <Login onLogin={handleLogin} />;
     return (
-      <SiswaDashboard 
-        user={user}
-        blpPeriods={systemData.blpPeriods}
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
-        remindersEnabled={remindersEnabled}
-        toggleReminders={toggleReminders}
-        onUpdateRecord={handleUpdateRecord}
-        onUpdateProfile={handleUpdateStudentProfile}
-        onUpdateQuranBookmark={handleUpdateQuranBookmark}
-        onLogout={handleLogout}
-      />
+      <Suspense fallback={null}>
+        <SiswaDashboard
+          user={user}
+          blpPeriods={systemData.blpPeriods}
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
+          remindersEnabled={remindersEnabled}
+          toggleReminders={toggleReminders}
+          onUpdateRecord={handleUpdateRecord}
+          onUpdateProfile={handleUpdateStudentProfile}
+          onUpdateQuranBookmark={handleUpdateQuranBookmark}
+          onLogout={handleLogout}
+        />
+      </Suspense>
     );
   }
 
   if (auth.role === 'guru') {
     return (
-      <GuruDashboard 
-        systemData={systemData}
-        auth={auth}
-        onLogout={handleLogout}
-        onUpdateProfile={handleUpdateGuruProfile}
-        onDeleteStudent={handleDeleteStudent}
-        onReviewSubmission={handleReviewSubmission}
-        onSaveBlpPeriod={handleSaveBlpPeriod}
-      />
+      <Suspense fallback={null}>
+        <GuruDashboard
+          systemData={systemData}
+          auth={auth}
+          onLogout={handleLogout}
+          onUpdateProfile={handleUpdateGuruProfile}
+          onDeleteStudent={handleDeleteStudent}
+          onReviewSubmission={handleReviewSubmission}
+          onSaveBlpPeriod={handleSaveBlpPeriod}
+        />
+      </Suspense>
     );
   }
 

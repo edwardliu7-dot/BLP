@@ -13,3 +13,4 @@
 - [BLP scoring exclusions](blp-scoring-exclusions.md) — school-only activities (r1/rp1) skip weekends; per-class-per-month active period excludes days from averages without blocking input; shared blpScoring.ts is the single source of truth.
 - [Redacting secrets in exec output](redact-secret-in-exec-output.md) — mask both raw AND URL-encoded/transformed forms of a secret before logging command output, or transformed forms leak past a naive string replace.
 - [Student accounts owned by EOB5guru](student-accounts-external-owner.md) — BLP app must never create/register student or guru accounts itself; accounts are provisioned by the separate EOB5guru app into the shared DB.
+- [Loading performance architecture](loading-performance.md) — login page shows instantly (no pre-login server call); /api/me/dashboard-data returns scoped data post-login; dashboards are React.lazy chunks.

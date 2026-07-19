@@ -190,6 +190,96 @@ async function loadBlpPeriods(): Promise<SystemData['blpPeriods']> {
   return periods;
 }
 
+// GET dashboard data scoped to the logged-in user's role.
+// Siswa: only their own record + blpPeriods for their class.
+// Guru: only students in their wali kelas + blpPeriods for that class.
+// Much faster than /api/system-data — avoids full-table scans on initial load.
+app.get('/api/me/dashboard-data', async (req, res) => {
+  if (!req.session.userId || !req.session.role) {
+    return res.status(401).json({ error: 'Anda harus login untuk melakukan ini' });
+  }
+  try {
+    if (req.session.role === 'siswa') {
+      const student = await loadStudent(req.session.userId);
+      if (!student) return res.status(404).json({ error: 'Siswa tidak ditemukan' });
+
+      const periodsRes = await pool.query(
+        'SELECT kelas, year, month, start_day, end_day FROM blp_periods WHERE kelas = $1',
+        [student.kelas]
+      );
+      const blpPeriods: SystemData['blpPeriods'] = {};
+      for (const row of periodsRes.rows) {
+        blpPeriods[blpPeriodKey(normalizeKelas(row.kelas), row.year, row.month)] = {
+          startDay: row.start_day,
+          endDay: row.end_day,
+        };
+      }
+      return res.json({ students: { [student.id]: student }, gurus: {}, blpPeriods });
+    }
+
+    // Guru — load only the wali's own class
+    const guru = await loadGuru(req.session.userId);
+    if (!guru) return res.status(403).json({ error: 'Hanya wali kelas yang dapat mengakses ini' });
+
+    const kelasWali = guru.kelasWali[0];
+
+    // Fetch all students (small table) and records; filter by normalised kelas in JS
+    // so spelling variants in the DB are handled the same way as the rest of the app.
+    const [studentRes, recordsRes, periodsRes] = await Promise.all([
+      pool.query('SELECT id, username, name, kelas, email, whatsapp, photo_url, bio, quran_bookmark FROM students'),
+      pool.query('SELECT student_id, record_date, completed_activities, score, submissions FROM daily_records'),
+      pool.query('SELECT kelas, year, month, start_day, end_day FROM blp_periods'),
+    ]);
+
+    // Group records by student_id
+    const recordsByStudent: Record<string, Record<string, DailyRecord>> = {};
+    for (const r of recordsRes.rows) {
+      const dateKey = r.record_date.toISOString().slice(0, 10);
+      if (!recordsByStudent[r.student_id]) recordsByStudent[r.student_id] = {};
+      recordsByStudent[r.student_id][dateKey] = {
+        date: dateKey,
+        completedActivities: r.completed_activities || [],
+        score: r.score,
+        submissions: r.submissions || {},
+      };
+    }
+
+    // Filter students to this guru's class only
+    const students: SystemData['students'] = {};
+    for (const row of studentRes.rows) {
+      if (normalizeKelas(row.kelas) !== kelasWali) continue;
+      const student: UserProgress = {
+        id: row.id,
+        username: row.username,
+        name: row.name,
+        kelas: normalizeKelas(row.kelas),
+        email: row.email,
+        whatsapp: row.whatsapp,
+        photoUrl: row.photo_url,
+        bio: row.bio,
+        quranBookmark: row.quran_bookmark || null,
+        records: recordsByStudent[row.id] || {},
+      };
+      students[student.id] = student;
+    }
+
+    // Filter blpPeriods to this class only
+    const blpPeriods: SystemData['blpPeriods'] = {};
+    for (const row of periodsRes.rows) {
+      if (normalizeKelas(row.kelas) !== kelasWali) continue;
+      blpPeriods[blpPeriodKey(normalizeKelas(row.kelas), row.year, row.month)] = {
+        startDay: row.start_day,
+        endDay: row.end_day,
+      };
+    }
+
+    return res.json({ students, gurus: { [guru.id]: guru }, blpPeriods });
+  } catch (err) {
+    console.error('Failed to load dashboard data', err);
+    res.status(500).json({ error: 'Gagal memuat data dashboard' });
+  }
+});
+
 // GET all system data (students + gurus + BLP active-period settings), used on app load.
 // Uses bulk queries instead of per-row queries to avoid N+1 performance issues.
 app.get('/api/system-data', async (_req, res) => {
