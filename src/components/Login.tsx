@@ -56,7 +56,7 @@ export default function Login({ onLogin }: LoginProps) {
           return;
         }
         const student = await res.json();
-        onLogin({ role: 'siswa', userId: student.id, name: student.name, kelas: student.kelas });
+        await onLogin({ role: 'siswa', userId: student.id, name: student.name, kelas: student.kelas });
       } else {
         const res = await fetch('/api/login/guru', {
           method: 'POST',
@@ -68,7 +68,7 @@ export default function Login({ onLogin }: LoginProps) {
           return;
         }
         const guru = await res.json();
-        onLogin({ role: 'guru', userId: guru.id, name: guru.name, kelasWali: guru.kelasWali });
+        await onLogin({ role: 'guru', userId: guru.id, name: guru.name, kelasWali: guru.kelasWali });
       }
     } catch (err) {
       setErrorMsg('Gagal terhubung ke server. Silakan coba lagi.');
