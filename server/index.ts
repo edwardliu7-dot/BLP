@@ -190,22 +190,67 @@ async function loadBlpPeriods(): Promise<SystemData['blpPeriods']> {
   return periods;
 }
 
-// GET all system data (students + gurus + BLP active-period settings), used on app load
+// GET all system data (students + gurus + BLP active-period settings), used on app load.
+// Uses bulk queries instead of per-row queries to avoid N+1 performance issues.
 app.get('/api/system-data', async (_req, res) => {
   try {
-    const studentIdsRes = await pool.query('SELECT id FROM students');
-    const guruIdsRes = await pool.query('SELECT id FROM gurus');
+    // Three bulk queries instead of 2N+M individual queries
+    const [studentRes, recordsRes, guruRes] = await Promise.all([
+      pool.query(
+        'SELECT id, username, name, kelas, email, whatsapp, photo_url, bio, quran_bookmark FROM students'
+      ),
+      pool.query(
+        'SELECT student_id, record_date, completed_activities, score, submissions FROM daily_records'
+      ),
+      pool.query(
+        'SELECT id, username, name, jabatan, wali_kelas_kelas, photo_url, bio FROM gurus'
+      ),
+    ]);
 
-    const students: SystemData['students'] = {};
-    for (const row of studentIdsRes.rows) {
-      const student = await loadStudent(row.id);
-      if (student) students[student.id] = student;
+    // Group daily records by student_id in memory
+    const recordsByStudent: Record<string, Record<string, DailyRecord>> = {};
+    for (const r of recordsRes.rows) {
+      const dateKey = r.record_date.toISOString().slice(0, 10);
+      if (!recordsByStudent[r.student_id]) recordsByStudent[r.student_id] = {};
+      recordsByStudent[r.student_id][dateKey] = {
+        date: dateKey,
+        completedActivities: r.completed_activities || [],
+        score: r.score,
+        submissions: r.submissions || {},
+      };
     }
 
+    // Assemble student map
+    const students: SystemData['students'] = {};
+    for (const row of studentRes.rows) {
+      const student: UserProgress = {
+        id: row.id,
+        username: row.username,
+        name: row.name,
+        kelas: normalizeKelas(row.kelas),
+        email: row.email,
+        whatsapp: row.whatsapp,
+        photoUrl: row.photo_url,
+        bio: row.bio,
+        quranBookmark: row.quran_bookmark || null,
+        records: recordsByStudent[row.id] || {},
+      };
+      students[student.id] = student;
+    }
+
+    // Assemble guru map (wali kelas only)
     const gurus: SystemData['gurus'] = {};
-    for (const row of guruIdsRes.rows) {
-      const guru = await loadGuru(row.id);
-      if (guru) gurus[guru.id] = guru;
+    for (const row of guruRes.rows) {
+      if (!isWaliKelas(row)) continue;
+      const guru: GuruProfile = {
+        id: row.id,
+        username: row.username,
+        name: row.name,
+        kelasWali: [normalizeKelas(row.wali_kelas_kelas)],
+        photoUrl: row.photo_url,
+        bio: row.bio,
+      };
+      gurus[guru.id] = guru;
     }
 
     const blpPeriods = await loadBlpPeriods();
