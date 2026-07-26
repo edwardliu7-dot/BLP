@@ -357,50 +357,85 @@ export default function SiswaDashboard({
           </div>
         ) : view === 'daily' ? (
           <>
-            <div className="app-card p-5 sm:p-6 transition-colors">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold flex items-center gap-2 dark:text-slate-200">
-                  <Trophy className="text-amber-500 w-5 h-5" />
-                  Progress Hari Ini
-                </h3>
-                <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                  {completedCount} / {totalActivities}
-                </span>
-              </div>
-              <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <motion.div 
-                  className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-amber-400 rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${completionRate}%` }}
-                  transition={{ type: "spring", bounce: 0.2 }}
-                />
-              </div>
-              
-              <div className="mt-4 p-4 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/25 dark:to-yellow-900/15 border border-amber-200 dark:border-amber-800/70 rounded-2xl flex items-center justify-between transition-colors">
-                <div>
-                  <p className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">⭐ Nilai Hari Ini</p>
-                  <p className="text-xs text-amber-500 mt-0.5">{completionRate === 100 ? 'Luar biasa! Sempurna! 🎉' : 'Ayo selesaikan amaliyahmu!'}</p>
+            {/* ── Hero Score Card ── */}
+            <div className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-600 rounded-2xl p-5 sm:p-6 text-white shadow-lg shadow-emerald-900/15 flex flex-col sm:flex-row items-center gap-5 sm:justify-between">
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-emerald-100 uppercase tracking-widest mb-1">
+                  {format(selectedDate, 'EEEE, d MMMM yyyy', { locale: localeId })}
+                  {isToday(selectedDate) && <span className="ml-2 bg-amber-400/30 text-amber-200 px-2 py-0.5 rounded-full text-[10px]">Hari Ini</span>}
+                  {!isEditableDay && <span className="ml-2 bg-white/10 text-white/70 px-2 py-0.5 rounded-full text-[10px] inline-flex items-center gap-1"><Lock size={8} /> Terkunci</span>}
+                </p>
+                <div className="text-5xl font-extrabold tracking-tight">{Math.round(completionRate)}</div>
+                <div className="text-sm text-emerald-100 mt-0.5">Nilai BLP Hari Ini</div>
+                <div className="flex items-center gap-1 mt-3">
+                  {[1,2,3,4,5].map(s => (
+                    <Star key={s} className={cn('w-4 h-4', s <= Math.ceil(completionRate / 20) ? 'fill-amber-300 text-amber-300' : 'text-white/20')} />
+                  ))}
+                  <span className="text-xs text-emerald-100 ml-1">
+                    {completionRate === 100 ? 'Luar biasa! Sempurna! 🎉' : completionRate >= 60 ? 'Teruskan semangatmu!' : 'Ayo selesaikan amaliyahmu!'}
+                  </span>
                 </div>
-                <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">{Math.round(completionRate)}<span className="text-base font-bold opacity-60">/100</span></span>
+                {/* Linear progress bar */}
+                <div className="mt-4 h-2 bg-white/20 rounded-full overflow-hidden w-full max-w-xs">
+                  <motion.div
+                    className="h-full bg-white rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${completionRate}%` }}
+                    transition={{ type: 'spring', bounce: 0.2 }}
+                  />
+                </div>
+                <p className="text-xs text-emerald-100 mt-1">{completedCount} / {totalActivities} aktivitas selesai</p>
+              </div>
+
+              {/* Circular ring */}
+              <div className="flex flex-col items-center flex-shrink-0">
+                <div className="relative w-24 h-24">
+                  <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
+                    <circle cx="48" cy="48" r="38" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="9" />
+                    <circle
+                      cx="48" cy="48" r="38" fill="none"
+                      stroke="white" strokeWidth="9"
+                      strokeDasharray={`${2 * Math.PI * 38 * completionRate / 100} ${2 * Math.PI * 38}`}
+                      strokeLinecap="round"
+                      style={{ transition: 'stroke-dasharray 0.6s ease' }}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-xl font-extrabold leading-none">{Math.round(completionRate)}%</span>
+                    <span className="text-[10px] text-emerald-100">selesai</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-8 pb-10">
+            {/* ── Category Sections ── */}
+            <div className="space-y-4 pb-10">
               {BLP_CATEGORIES.map((category) => {
                 const cat = CATEGORY_CONFIG[category.id] ?? DEFAULT_CAT;
+                const catDone = category.activities.filter(a => currentRecord.completedActivities.includes(a.id)).length;
+                const catPct = Math.round((catDone / category.activities.length) * 100);
                 return (
-                <section key={category.id} className="space-y-3">
-                  <div className="flex items-center gap-3 px-1">
-                    <div className={cn("w-2 h-7 rounded-full", cat.bar)} />
-                    <div>
-                      <h3 className={cn("font-extrabold tracking-tight text-sm uppercase", cat.label)}>
-                        {category.label}
-                      </h3>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-widest">{category.name.split('(')[1]?.replace(')', '') ?? ''}</p>
+                <section key={category.id} className="app-card overflow-hidden">
+                  {/* Gradient header bar */}
+                  <div className={cn("flex items-center justify-between px-4 py-2.5", cat.doneBg, "border-b", cat.doneBorder)}>
+                    <div className="flex items-center gap-2">
+                      <div className={cn("w-1.5 h-5 rounded-full", cat.bar)} />
+                      <div>
+                        <h3 className={cn("font-extrabold tracking-tight text-sm uppercase", cat.label)}>
+                          {category.label}
+                        </h3>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-widest">{category.name.split('(')[1]?.replace(')', '') ?? ''}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-xs font-bold", cat.label)}>{catDone}/{category.activities.length}</span>
+                      <div className="w-16 h-1.5 bg-slate-200/70 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div className={cn("h-full rounded-full transition-all", cat.bar)} style={{ width: `${catPct}%` }} />
+                      </div>
                     </div>
                   </div>
-                  
-                  <div className="grid gap-2.5">
+
+                  <div className="p-3 grid gap-2">
                     {category.activities.map((activity) => {
                       const isDone = currentRecord.completedActivities.includes(activity.id);
                       const isSchoolOnly = SCHOOL_ONLY_ACTIVITY_IDS.includes(activity.id) && !isSchoolDay(selectedDate);
@@ -410,7 +445,7 @@ export default function SiswaDashboard({
                           whileTap={isEditableDay && !isSchoolOnly ? { scale: 0.98 } : undefined}
                           onClick={() => toggleActivity(activity.id)}
                           className={cn(
-                            "flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left shadow-sm",
+                            "flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left",
                             !isEditableDay && "opacity-60 cursor-not-allowed",
                             isSchoolOnly && "opacity-50 cursor-not-allowed",
                             isDone
@@ -422,17 +457,17 @@ export default function SiswaDashboard({
                             "flex-shrink-0 transition-colors",
                             isDone ? cat.check : "text-slate-300 dark:text-slate-700"
                           )}>
-                            {isDone ? <CheckCircle2 size={24} /> : <Circle size={24} />}
+                            {isDone ? <CheckCircle2 size={22} /> : <Circle size={22} />}
                           </div>
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <p className={cn(
-                              "font-semibold leading-snug flex items-center gap-1.5",
+                              "font-semibold leading-snug flex items-center gap-1.5 flex-wrap",
                               isDone ? "text-slate-800 dark:text-slate-100" : "text-slate-600 dark:text-slate-300"
                             )}>
                               {activity.name}
-                              {activity.id === QURAN_ACTIVITY_ID && <Mic size={13} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />}
-                              {getChecklistConfig(activity.id) && <ListChecks size={13} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />}
-                              {getSubmissionConfig(activity.id) && <PenLine size={13} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />}
+                              {activity.id === QURAN_ACTIVITY_ID && <Mic size={12} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />}
+                              {getChecklistConfig(activity.id) && <ListChecks size={12} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />}
+                              {getSubmissionConfig(activity.id) && <PenLine size={12} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />}
                             </p>
                             <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-medium uppercase tracking-wider">
                               Target: {activity.target}
@@ -454,6 +489,7 @@ export default function SiswaDashboard({
                             <motion.div
                               initial={{ scale: 0, opacity: 0 }}
                               animate={{ scale: 1, opacity: 1 }}
+                              className="flex-shrink-0"
                             >
                               <Star className="text-amber-400 fill-amber-400 w-4 h-4" />
                             </motion.div>
@@ -548,27 +584,28 @@ export default function SiswaDashboard({
              <div className="app-card p-5 sm:p-6 transition-colors">
               <h4 className="font-bold mb-4 text-slate-700 dark:text-slate-200">Analisis Capaian</h4>
               <div className="space-y-4">
-                {BLP_CATEGORIES.map(cat => {
+                {BLP_CATEGORIES.map(category => {
+                   const cat = CATEGORY_CONFIG[category.id] ?? DEFAULT_CAT;
                    let catTotal = 0;
-                   let catPossible = daysInMonth.length * cat.activities.length;
+                   let catPossible = daysInMonth.length * category.activities.length;
                    daysInMonth.forEach(day => {
                      const key = format(day, 'yyyy-MM-dd');
                      const rec = records[key];
                      if (rec) {
-                       catTotal += rec.completedActivities.filter(id => cat.activities.some(a => a.id === id)).length;
+                       catTotal += rec.completedActivities.filter(id => category.activities.some(a => a.id === id)).length;
                      }
                    });
                    const catRate = catPossible > 0 ? (catTotal / catPossible) * 100 : 0;
                    
                    return (
-                     <div key={cat.id}>
-                        <div className="flex justify-between text-xs mb-1 font-medium">
-                          <span className="text-slate-500 dark:text-slate-400">{cat.label}</span>
+                     <div key={category.id}>
+                        <div className="flex justify-between text-xs mb-1.5 font-medium">
+                          <span className={cn("font-semibold", cat.label)}>{category.label}</span>
                           <span className="text-slate-700 dark:text-slate-200">{Math.round(catRate)}%</span>
                         </div>
-                        <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                           <div 
-                            className="h-full bg-emerald-500" 
+                            className={cn("h-full rounded-full transition-all", cat.bar)}
                             style={{ width: `${catRate}%` }}
                           />
                         </div>

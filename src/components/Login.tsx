@@ -115,6 +115,9 @@ export default function Login({ onLogin }: LoginProps) {
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight drop-shadow-lg">BLP Harian</h1>
             <p className="text-emerald-200 font-semibold text-lg mt-1">SMP TISA Islamic School</p>
+            <div className="mt-2 inline-block bg-amber-400/20 border border-amber-300/40 rounded-xl px-4 py-1">
+              <p className="text-amber-200 font-bold text-sm tracking-wide">✦ Cerdas Berkarakter! ✦</p>
+            </div>
           </div>
 
           {/* Bismillah box */}
