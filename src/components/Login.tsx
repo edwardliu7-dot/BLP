@@ -109,7 +109,7 @@ export default function Login({ onLogin }: LoginProps) {
               Ruang sederhana untuk mencatat amaliyah harian dan melihat langkah kecil yang membentuk karakter.
             </p>
             <div className="mt-10 flex flex-wrap gap-3">
-              {['Beriman', 'Berilmu', 'Berakhlak'].map((item) => (
+              {['Cerdas', 'Berkarakter'].map((item) => (
                 <span
                   key={item}
                   className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold text-[#e0f1eb]"

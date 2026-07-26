@@ -426,11 +426,11 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="app-card-muted text-emerald-900 dark:text-emerald-100 text-sm">
-                  <th className="p-3 border-b border-emerald-100 dark:border-emerald-900/40 font-semibold sticky left-0 app-card-muted z-10">Nama Siswa</th>
-                  <th className="p-3 border-b border-slate-200 dark:border-slate-700 font-semibold text-center">Kelas</th>
-                  <th className="p-3 border-b border-slate-200 dark:border-slate-700 font-semibold text-center">Rata-Rata</th>
-                  <th className="p-3 border-b border-slate-200 dark:border-slate-700 font-semibold text-center">Hari Dinilai</th>
-                  <th className="p-3 border-b border-slate-200 dark:border-slate-700 font-semibold text-center">Unduh Rekap</th>
+                  <th className="p-3 border-b border-emerald-100 dark:border-emerald-900/40 font-semibold sticky left-0 app-card-muted z-10 w-52 min-w-[13rem] max-w-[13rem]">Nama Siswa</th>
+                  <th className="p-3 border-b border-slate-200 dark:border-slate-700 font-semibold text-center whitespace-nowrap">Kelas</th>
+                  <th className="p-3 border-b border-slate-200 dark:border-slate-700 font-semibold text-center whitespace-nowrap">Rata-Rata</th>
+                  <th className="p-3 border-b border-slate-200 dark:border-slate-700 font-semibold text-center whitespace-nowrap">Hari Dinilai</th>
+                  <th className="p-3 border-b border-slate-200 dark:border-slate-700 font-semibold text-center whitespace-nowrap">Unduh Rekap</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -455,8 +455,10 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
 
                   return (
                     <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                      <td className="p-3 font-medium text-slate-800 dark:text-slate-100 sticky left-0 bg-white dark:bg-slate-900 z-10">{s.name}</td>
-                      <td className="p-3 text-center text-xs text-slate-500 dark:text-slate-400 font-semibold">{s.kelas}</td>
+                      <td className="p-3 font-medium text-slate-800 dark:text-slate-100 sticky left-0 bg-white dark:bg-slate-900 z-10 w-52 min-w-[13rem] max-w-[13rem]">
+                        <span className="block truncate" title={s.name}>{s.name}</span>
+                      </td>
+                      <td className="p-3 text-center text-xs text-slate-500 dark:text-slate-400 font-semibold whitespace-nowrap">{s.kelas}</td>
                       <td className="p-3 text-center">
                         {avgNum !== null ? (
                           <span className={cn('inline-block px-2.5 py-1 rounded-lg text-sm font-bold border', scoreBg(avgNum))}>
