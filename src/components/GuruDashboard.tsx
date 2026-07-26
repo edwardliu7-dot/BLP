@@ -51,6 +51,19 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Reusable student avatar: shows photo if available, otherwise colourful initials.
+function StudentAvatar({ name, photoUrl, size = 'md' }: { name: string; photoUrl?: string | null; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
+  const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+  const dims = size === 'sm' ? 'w-8 h-8 text-[10px]' : size === 'lg' ? 'w-14 h-14 text-base' : size === 'xl' ? 'w-20 h-20 text-2xl' : 'w-10 h-10 text-xs';
+  return photoUrl
+    ? <img src={photoUrl} alt={name} className={cn(dims, 'rounded-full object-cover flex-shrink-0')} />
+    : (
+      <div className={cn(dims, 'rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold flex-shrink-0')}>
+        {initials}
+      </div>
+    );
+}
+
 interface GuruDashboardProps {
   systemData: SystemData;
   auth: AuthState;
@@ -341,8 +354,6 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
                     ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
                     : 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300';
 
-                  const initials = s.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
-
                   return (
                     <div key={s.id} className="flex flex-wrap sm:grid sm:grid-cols-[2fr_1fr_1fr_1fr_auto] items-center gap-3 sm:gap-0 p-4 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/10 transition-colors">
                       {/* Name */}
@@ -350,9 +361,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
                         onClick={() => handleSelectStudent(s.id)}
                         className="flex items-center gap-3 text-left flex-1 min-w-0"
                       >
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                          {initials}
-                        </div>
+                        <StudentAvatar name={s.name} photoUrl={s.photoUrl} size="sm" />
                         <div className="min-w-0">
                           <p className="font-bold text-emerald-950 dark:text-slate-100 truncate">{s.name}</p>
                           <p className="text-xs text-slate-400">{s.kelas}</p>
@@ -649,9 +658,12 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
                         : hasWarn ? "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-900/40"
                         : "bg-slate-50 dark:bg-slate-800/60 border-slate-100 dark:border-slate-800"
                     )}>
-                      <div>
-                        <p className="font-bold text-slate-800 dark:text-slate-100">{s.name}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{s.kelas}</p>
+                      <div className="flex items-center gap-3">
+                        <StudentAvatar name={s.name} photoUrl={s.photoUrl} size="md" />
+                        <div>
+                          <p className="font-bold text-slate-800 dark:text-slate-100">{s.name}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">{s.kelas}</p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {hasAlert && <ShieldAlert size={16} className="text-red-500" />}
@@ -768,8 +780,22 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
       
       {isPresentation && (
         <div className="text-center mb-10">
+          <div className="flex justify-center mb-4">
+            <StudentAvatar name={selectedStudent.name} photoUrl={selectedStudent.photoUrl} size="xl" />
+          </div>
           <h2 className="text-4xl font-bold text-slate-800 mb-2">Hasil BLP: {selectedStudent.name}</h2>
           <p className="text-xl text-slate-500">{format(selectedDate, 'EEEE, d MMMM yyyy', { locale: localeId })}</p>
+        </div>
+      )}
+
+      {/* Student identity strip — detail view only */}
+      {!isPresentation && (
+        <div className="flex items-center gap-4 app-card px-5 py-4">
+          <StudentAvatar name={selectedStudent.name} photoUrl={selectedStudent.photoUrl} size="lg" />
+          <div>
+            <p className="font-bold text-lg text-slate-800 dark:text-slate-100 leading-tight">{selectedStudent.name}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{selectedStudent.kelas}</p>
+          </div>
         </div>
       )}
 
