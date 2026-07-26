@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { motion } from 'motion/react';
-import { GraduationCap, AtSign, ArrowRight, KeyRound } from 'lucide-react';
+import { AtSign, ArrowRight, KeyRound } from 'lucide-react';
 import { AuthState } from '../types';
+import PageLayout from './layout/PageLayout';
 
 interface LoginProps {
   onLogin: (auth: AuthState) => Promise<void>;
@@ -78,7 +79,8 @@ export default function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 transition-colors">
+    <PageLayout>
+      <div className="flex items-center justify-center min-h-[calc(100vh-9rem)] p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -178,6 +180,7 @@ export default function Login({ onLogin }: LoginProps) {
           </form>
         </div>
       </motion.div>
-    </div>
+      </div>
+    </PageLayout>
   );
 }
