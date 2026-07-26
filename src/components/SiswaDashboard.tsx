@@ -46,6 +46,16 @@ const EVALUASI_ACTIVITY_ID = 'rf3';
 const PERLENGKAPAN_ACTIVITY_ID = 'rp1';
 const RECIPROCITY_ACTIVITY_IDS = ['rp2', 'rp3', 'rp4'];
 
+// Color config per BLP category — full class strings so Tailwind JIT picks them up
+const CATEGORY_CONFIG: Record<string, { bar: string; doneBg: string; doneBorder: string; hover: string; check: string; label: string }> = {
+  devout:          { bar: 'bg-emerald-500', doneBg: 'bg-emerald-50',  doneBorder: 'border-emerald-300', hover: 'hover:border-emerald-300', check: 'text-emerald-600', label: 'text-emerald-700' },
+  resilience:      { bar: 'bg-amber-500',   doneBg: 'bg-amber-50',    doneBorder: 'border-amber-300',   hover: 'hover:border-amber-300',   check: 'text-amber-600',   label: 'text-amber-700'   },
+  resourcefulness: { bar: 'bg-blue-500',    doneBg: 'bg-sky-50',      doneBorder: 'border-sky-300',     hover: 'hover:border-sky-300',     check: 'text-sky-600',     label: 'text-blue-700'    },
+  reflectiveness:  { bar: 'bg-violet-500',  doneBg: 'bg-violet-50',   doneBorder: 'border-violet-300',  hover: 'hover:border-violet-300',  check: 'text-violet-600',  label: 'text-violet-700'  },
+  reciprocity:     { bar: 'bg-rose-500',    doneBg: 'bg-rose-50',     doneBorder: 'border-rose-300',    hover: 'hover:border-rose-300',    check: 'text-rose-600',    label: 'text-rose-700'    },
+};
+const DEFAULT_CAT = { bar: 'bg-slate-400', doneBg: 'bg-slate-50', doneBorder: 'border-slate-300', hover: 'hover:border-slate-300', check: 'text-slate-600', label: 'text-slate-700' };
+
 function getChecklistConfig(activityId: string): { title: string; items: typeof PERLENGKAPAN_SEKOLAH_ITEMS } | null {
   if (activityId === PERLENGKAPAN_ACTIVITY_ID) {
     return {
@@ -357,36 +367,40 @@ export default function SiswaDashboard({
                   {completedCount} / {totalActivities}
                 </span>
               </div>
-              <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <motion.div 
-                  className="h-full bg-emerald-500"
+                  className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-amber-400 rounded-full"
                   initial={{ width: 0 }}
                   animate={{ width: `${completionRate}%` }}
                   transition={{ type: "spring", bounce: 0.2 }}
                 />
               </div>
               
-              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between transition-colors">
-                <span className="text-sm font-medium text-blue-800 dark:text-blue-300">Nilai Hari Ini:</span>
-                <span className="text-lg font-bold text-blue-700 dark:text-blue-400">{Math.round(completionRate)}/100</span>
+              <div className="mt-4 p-4 bg-gradient-to-r from-amber-50 to-yellow-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-center justify-between transition-colors">
+                <div>
+                  <p className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">⭐ Nilai Hari Ini</p>
+                  <p className="text-xs text-amber-500 mt-0.5">{completionRate === 100 ? 'Luar biasa! Sempurna! 🎉' : 'Ayo selesaikan amaliyahmu!'}</p>
+                </div>
+                <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">{Math.round(completionRate)}<span className="text-base font-bold opacity-60">/100</span></span>
               </div>
-
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-3 italic text-center">
-                "{completionRate === 100 ? 'Luar biasa! Pertahankan semangatmu!' : 'Ayo selesaikan amaliyah hari ini!'}"
-              </p>
             </div>
 
             <div className="space-y-8 pb-10">
-              {BLP_CATEGORIES.map((category) => (
-                <section key={category.id} className="space-y-4">
-                  <div className="flex items-center gap-2 px-1">
-                    <div className="w-1 h-6 bg-emerald-600 dark:bg-emerald-400 rounded-full" />
-                    <h3 className="font-bold text-slate-700 dark:text-slate-300 tracking-tight text-sm uppercase">
-                      {category.name}
-                    </h3>
+              {BLP_CATEGORIES.map((category) => {
+                const cat = CATEGORY_CONFIG[category.id] ?? DEFAULT_CAT;
+                return (
+                <section key={category.id} className="space-y-3">
+                  <div className="flex items-center gap-3 px-1">
+                    <div className={cn("w-2 h-7 rounded-full", cat.bar)} />
+                    <div>
+                      <h3 className={cn("font-extrabold tracking-tight text-sm uppercase", cat.label)}>
+                        {category.label}
+                      </h3>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-widest">{category.name.split('(')[1]?.replace(')', '') ?? ''}</p>
+                    </div>
                   </div>
                   
-                  <div className="grid gap-3">
+                  <div className="grid gap-2.5">
                     {category.activities.map((activity) => {
                       const isDone = currentRecord.completedActivities.includes(activity.id);
                       const isSchoolOnly = SCHOOL_ONLY_ACTIVITY_IDS.includes(activity.id) && !isSchoolDay(selectedDate);
@@ -396,24 +410,24 @@ export default function SiswaDashboard({
                           whileTap={isEditableDay && !isSchoolOnly ? { scale: 0.98 } : undefined}
                           onClick={() => toggleActivity(activity.id)}
                           className={cn(
-                            "flex items-center gap-4 p-4 rounded-2xl border transition-all text-left",
+                            "flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left shadow-sm",
                             !isEditableDay && "opacity-60 cursor-not-allowed",
                             isSchoolOnly && "opacity-50 cursor-not-allowed",
                             isDone 
-                              ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 shadow-sm" 
-                              : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700"
+                              ? cn(cat.doneBg, cat.doneBorder)
+                              : cn("bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800", cat.hover)
                           )}
                         >
                           <div className={cn(
                             "flex-shrink-0 transition-colors",
-                            isDone ? "text-emerald-600 dark:text-emerald-400" : "text-slate-300 dark:text-slate-700"
+                            isDone ? cat.check : "text-slate-300 dark:text-slate-700"
                           )}>
                             {isDone ? <CheckCircle2 size={24} /> : <Circle size={24} />}
                           </div>
                           <div className="flex-1">
                             <p className={cn(
-                              "font-medium leading-snug flex items-center gap-1.5",
-                              isDone ? "text-emerald-900 dark:text-emerald-100" : "text-slate-700 dark:text-slate-300"
+                              "font-semibold leading-snug flex items-center gap-1.5",
+                              isDone ? "text-slate-800 dark:text-slate-100" : "text-slate-600 dark:text-slate-300"
                             )}>
                               {activity.name}
                               {activity.id === QURAN_ACTIVITY_ID && <Mic size={13} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />}
