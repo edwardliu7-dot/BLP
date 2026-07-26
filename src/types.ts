@@ -50,6 +50,12 @@ export interface DailyRecord {
   submissions?: Record<string, ActivitySubmission>; // activityId -> submission
 }
 
+export interface HaidPeriod {
+  id: number;
+  startDate: string; // YYYY-MM-DD
+  endDate: string | null; // null = ongoing
+}
+
 export const KELAS_OPTIONS = ['VII Ibnu Batuttah', 'VIII Ibnu Sina', 'IX Al Khawarizmi'] as const;
 
 export interface UserProgress {
@@ -63,6 +69,8 @@ export interface UserProgress {
   photoUrl?: string | null;
   bio?: string | null;
   quranBookmark?: QuranBookmark | null;
+  jenisKelamin?: 'L' | 'P' | null; // L = laki-laki, P = perempuan
+  haidPeriods?: HaidPeriod[];
   records: Record<string, DailyRecord>;
 }
 

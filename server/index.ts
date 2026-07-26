@@ -2,7 +2,7 @@ import express from 'express';
 import session from 'express-session';
 import bcrypt from 'bcryptjs';
 import { pool } from './db';
-import type { UserProgress, GuruProfile, DailyRecord, SystemData, BlpPeriod } from '../src/types';
+import type { UserProgress, GuruProfile, DailyRecord, SystemData, BlpPeriod, HaidPeriod } from '../src/types';
 import { KELAS_OPTIONS } from '../src/types';
 
 declare module 'express-session' {
@@ -91,16 +91,23 @@ function requireAuth(role: 'siswa' | 'guru', idParam?: string) {
 
 async function loadStudent(id: string): Promise<UserProgress | null> {
   const studentRes = await pool.query(
-    'SELECT id, username, name, kelas, email, whatsapp, photo_url, bio, quran_bookmark FROM students WHERE id = $1',
+    'SELECT id, username, name, kelas, email, whatsapp, photo_url, bio, quran_bookmark, jenis_kelamin FROM students WHERE id = $1',
     [id]
   );
   if (studentRes.rowCount === 0) return null;
   const row = studentRes.rows[0];
 
-  const recordsRes = await pool.query(
-    'SELECT record_date, completed_activities, score, submissions FROM daily_records WHERE student_id = $1',
-    [id]
-  );
+  const [recordsRes, haidRes] = await Promise.all([
+    pool.query(
+      'SELECT record_date, completed_activities, score, submissions FROM daily_records WHERE student_id = $1',
+      [id]
+    ),
+    pool.query(
+      'SELECT id, start_date, end_date FROM haid_periods WHERE student_id = $1 ORDER BY start_date DESC',
+      [id]
+    ),
+  ]);
+
   const records: Record<string, DailyRecord> = {};
   for (const r of recordsRes.rows) {
     const dateKey = r.record_date.toISOString().slice(0, 10);
@@ -112,6 +119,12 @@ async function loadStudent(id: string): Promise<UserProgress | null> {
     };
   }
 
+  const haidPeriods: HaidPeriod[] = haidRes.rows.map(r => ({
+    id: r.id,
+    startDate: r.start_date.toISOString().slice(0, 10),
+    endDate: r.end_date ? r.end_date.toISOString().slice(0, 10) : null,
+  }));
+
   return {
     id: row.id,
     username: row.username,
@@ -122,6 +135,8 @@ async function loadStudent(id: string): Promise<UserProgress | null> {
     photoUrl: row.photo_url,
     bio: row.bio,
     quranBookmark: row.quran_bookmark || null,
+    jenisKelamin: row.jenis_kelamin || null,
+    haidPeriods,
     records,
   };
 }
@@ -225,10 +240,11 @@ app.get('/api/me/dashboard-data', async (req, res) => {
 
     // Fetch all students (small table) and records; filter by normalised kelas in JS
     // so spelling variants in the DB are handled the same way as the rest of the app.
-    const [studentRes, recordsRes, periodsRes] = await Promise.all([
-      pool.query('SELECT id, username, name, kelas, email, whatsapp, photo_url, bio, quran_bookmark FROM students'),
+    const [studentRes, recordsRes, periodsRes, haidRes] = await Promise.all([
+      pool.query('SELECT id, username, name, kelas, email, whatsapp, photo_url, bio, quran_bookmark, jenis_kelamin FROM students'),
       pool.query('SELECT student_id, record_date, completed_activities, score, submissions FROM daily_records'),
       pool.query('SELECT kelas, year, month, start_day, end_day FROM blp_periods'),
+      pool.query('SELECT id, student_id, start_date, end_date FROM haid_periods ORDER BY start_date DESC'),
     ]);
 
     // Group records by student_id
@@ -242,6 +258,17 @@ app.get('/api/me/dashboard-data', async (req, res) => {
         score: r.score,
         submissions: r.submissions || {},
       };
+    }
+
+    // Group haid periods by student_id
+    const haidByStudent: Record<string, HaidPeriod[]> = {};
+    for (const r of haidRes.rows) {
+      if (!haidByStudent[r.student_id]) haidByStudent[r.student_id] = [];
+      haidByStudent[r.student_id].push({
+        id: r.id,
+        startDate: r.start_date.toISOString().slice(0, 10),
+        endDate: r.end_date ? r.end_date.toISOString().slice(0, 10) : null,
+      });
     }
 
     // Filter students to this guru's class only
@@ -258,6 +285,8 @@ app.get('/api/me/dashboard-data', async (req, res) => {
         photoUrl: row.photo_url,
         bio: row.bio,
         quranBookmark: row.quran_bookmark || null,
+        jenisKelamin: row.jenis_kelamin || null,
+        haidPeriods: haidByStudent[row.id] || [],
         records: recordsByStudent[row.id] || {},
       };
       students[student.id] = student;
@@ -753,6 +782,22 @@ async function ensureSchema() {
       updated_by text,
       updated_at timestamptz NOT NULL DEFAULT now(),
       PRIMARY KEY (kelas, year, month)
+    )
+  `);
+  // Add jenis_kelamin column to students if not yet present (idempotent migration)
+  await pool.query(`
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS jenis_kelamin text
+      CHECK (jenis_kelamin IN ('L', 'P'))
+  `);
+  // Haid period tracking for female students
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS haid_periods (
+      id serial PRIMARY KEY,
+      student_id text NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+      start_date date NOT NULL,
+      end_date date,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
     )
   `);
 }
