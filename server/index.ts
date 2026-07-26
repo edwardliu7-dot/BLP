@@ -585,6 +585,71 @@ app.put('/api/students/:id/profile', requireAuth('siswa', 'id'), async (req, res
   }
 });
 
+// Start a haid period for a female student (today becomes start_date)
+app.post('/api/students/:id/haid', requireAuth('siswa', 'id'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const today = getJakartaTodayDateString();
+
+    const studentRes = await pool.query('SELECT jenis_kelamin FROM students WHERE id = $1', [id]);
+    if (studentRes.rowCount === 0) {
+      return res.status(404).json({ error: 'Siswa tidak ditemukan' });
+    }
+    if (studentRes.rows[0].jenis_kelamin !== 'P') {
+      return res.status(400).json({ error: 'Fitur ini hanya tersedia untuk siswa perempuan' });
+    }
+
+    // Prevent double-open periods
+    const openRes = await pool.query(
+      'SELECT id FROM haid_periods WHERE student_id = $1 AND end_date IS NULL',
+      [id]
+    );
+    if ((openRes.rowCount ?? 0) > 0) {
+      return res.status(409).json({ error: 'Masih ada periode haid yang belum ditutup' });
+    }
+
+    const result = await pool.query(
+      'INSERT INTO haid_periods (student_id, start_date) VALUES ($1, $2) RETURNING id, start_date',
+      [id, today]
+    );
+    res.json({
+      id: result.rows[0].id,
+      startDate: result.rows[0].start_date.toISOString().slice(0, 10),
+      endDate: null,
+    } satisfies HaidPeriod);
+  } catch (err) {
+    console.error('Failed to start haid period', err);
+    res.status(500).json({ error: 'Gagal mencatat awal haid' });
+  }
+});
+
+// End the current open haid period (today becomes end_date)
+app.put('/api/students/:id/haid/end', requireAuth('siswa', 'id'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const today = getJakartaTodayDateString();
+
+    const result = await pool.query(
+      `UPDATE haid_periods
+       SET end_date = $2, updated_at = now()
+       WHERE student_id = $1 AND end_date IS NULL
+       RETURNING id, start_date, end_date`,
+      [id, today]
+    );
+    if ((result.rowCount ?? 0) === 0) {
+      return res.status(404).json({ error: 'Tidak ada periode haid yang sedang aktif' });
+    }
+    res.json({
+      id: result.rows[0].id,
+      startDate: result.rows[0].start_date.toISOString().slice(0, 10),
+      endDate: result.rows[0].end_date.toISOString().slice(0, 10),
+    } satisfies HaidPeriod);
+  } catch (err) {
+    console.error('Failed to end haid period', err);
+    res.status(500).json({ error: 'Gagal mencatat akhir haid' });
+  }
+});
+
 // Update guru profile (photo + bio)
 app.put('/api/gurus/:id/profile', requireAuth('guru', 'id'), async (req, res) => {
   try {

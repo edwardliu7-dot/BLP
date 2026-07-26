@@ -22,7 +22,9 @@ import {
   ListChecks,
   Lock,
   FileDown,
-  Bookmark
+  Bookmark,
+  Heart,
+  HeartOff,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, addMonths, subMonths, startOfDay } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -31,7 +33,7 @@ import { twMerge } from 'tailwind-merge';
 
 import { BLP_CATEGORIES, PERLENGKAPAN_SEKOLAH_ITEMS } from '../data/activities';
 import { getSurah } from '../data/quran';
-import { DailyRecord, UserProgress, ActivitySubmission, QuranBookmark, BlpPeriod } from '../types';
+import { DailyRecord, UserProgress, ActivitySubmission, QuranBookmark, BlpPeriod, HaidPeriod } from '../types';
 import TextSubmissionModal from './modals/TextSubmissionModal';
 import ChecklistSubmissionModal from './modals/ChecklistSubmissionModal';
 import QuranReadingModal from './modals/QuranReadingModal';
@@ -104,6 +106,8 @@ interface SiswaDashboardProps {
   onUpdateRecord: (dateKey: string, updatedRecord: DailyRecord) => void;
   onUpdateProfile: (photoUrl: string | null, bio: string) => Promise<void> | void;
   onUpdateQuranBookmark: (bookmark: QuranBookmark) => Promise<void> | void;
+  onStartHaid: () => Promise<void>;
+  onEndHaid: () => Promise<void>;
   onLogout: () => void;
 }
 
@@ -117,11 +121,18 @@ export default function SiswaDashboard({
   onUpdateRecord,
   onUpdateProfile,
   onUpdateQuranBookmark,
+  onStartHaid,
+  onEndHaid,
   onLogout
 }: SiswaDashboardProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [view, setView] = useState<'daily' | 'monthly' | 'settings'>('daily');
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [haidLoading, setHaidLoading] = useState(false);
+  const [haidError, setHaidError] = useState<string | null>(null);
+
+  const activeHaid: HaidPeriod | undefined = (user.haidPeriods || []).find(p => p.endDate === null);
+  const isPerempuan = user.jenisKelamin === 'P';
 
   const records = user.records;
   const dateKey = format(selectedDate, 'yyyy-MM-dd');
@@ -175,6 +186,22 @@ export default function SiswaDashboard({
       completedActivities: updatedCompleted,
       submissions: updatedSubmissions,
     });
+  };
+
+  const handleToggleHaid = async () => {
+    setHaidLoading(true);
+    setHaidError(null);
+    try {
+      if (activeHaid) {
+        await onEndHaid();
+      } else {
+        await onStartHaid();
+      }
+    } catch (e: unknown) {
+      setHaidError(e instanceof Error ? e.message : 'Terjadi kesalahan');
+    } finally {
+      setHaidLoading(false);
+    }
   };
 
   const totalActivities = getEffectiveTotalActivities(selectedDate);
@@ -354,6 +381,93 @@ export default function SiswaDashboard({
                 </button>
               </div>
             </section>
+
+            {/* ── Haid section: only for female students ── */}
+            {isPerempuan && (
+              <section className="app-card p-5 sm:p-6 space-y-4 transition-colors">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-lg">
+                    <Heart className="text-rose-500 w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold">Status Haid</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Selama haid, poin Shalat Berjamaah dan Al-Qur'an otomatis terhitung ✓
+                    </p>
+                  </div>
+                </div>
+
+                <div className={cn(
+                  "rounded-xl border-2 p-4 flex items-center justify-between gap-4",
+                  activeHaid
+                    ? "bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800"
+                    : "bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700"
+                )}>
+                  <div>
+                    {activeHaid ? (
+                      <>
+                        <p className="font-semibold text-rose-700 dark:text-rose-300 flex items-center gap-1.5">
+                          <Heart size={14} className="fill-rose-500 text-rose-500" />
+                          Sedang haid
+                        </p>
+                        <p className="text-xs text-rose-500 dark:text-rose-400 mt-0.5">
+                          Mulai: {format(new Date(activeHaid.startDate), 'd MMMM yyyy', { locale: localeId })}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                          <HeartOff size={14} />
+                          Tidak sedang haid
+                        </p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                          Tekan tombol saat haid dimulai
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleToggleHaid}
+                    disabled={haidLoading}
+                    className={cn(
+                      "px-4 py-2 rounded-xl text-sm font-bold transition-colors shrink-0 disabled:opacity-60",
+                      activeHaid
+                        ? "bg-rose-500 hover:bg-rose-600 text-white"
+                        : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                    )}
+                  >
+                    {haidLoading ? '...' : activeHaid ? 'Selesai Haid' : 'Mulai Haid'}
+                  </button>
+                </div>
+
+                {haidError && (
+                  <p className="text-xs text-red-600 dark:text-red-400 px-1">{haidError}</p>
+                )}
+
+                {/* Haid history (last 6 periods) */}
+                {(user.haidPeriods || []).filter(p => p.endDate !== null).length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Riwayat Haid</p>
+                    <div className="space-y-1.5">
+                      {(user.haidPeriods || [])
+                        .filter(p => p.endDate !== null)
+                        .slice(0, 6)
+                        .map(p => {
+                          const start = new Date(p.startDate);
+                          const end = new Date(p.endDate!);
+                          const days = Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+                          return (
+                            <div key={p.id} className="flex justify-between text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 rounded-lg px-3 py-2">
+                              <span>{format(start, 'd MMM', { locale: localeId })} – {format(end, 'd MMM yyyy', { locale: localeId })}</span>
+                              <span className="font-medium">{days} hari</span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
           </div>
         ) : view === 'daily' ? (
           <>

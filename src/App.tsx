@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { AuthState, SystemData, DailyRecord, UserProgress, GuruProfile, QuranBookmark } from './types';
+import { AuthState, SystemData, DailyRecord, UserProgress, GuruProfile, QuranBookmark, HaidPeriod } from './types';
 import Login from './components/Login';
 import LoadingScreen from './components/LoadingScreen';
 
@@ -259,6 +259,53 @@ export default function App() {
     });
   };
 
+  const handleStartHaid = async () => {
+    if (auth.role !== 'siswa' || !auth.userId) return;
+    const userId = auth.userId;
+    const res = await fetch(`/api/students/${encodeURIComponent(userId)}/haid`, { method: 'POST' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.error || 'Gagal mencatat awal haid');
+    }
+    const newPeriod: HaidPeriod = await res.json();
+    setSystemData(prev => {
+      const student = prev.students[userId];
+      if (!student) return prev;
+      return {
+        ...prev,
+        students: {
+          ...prev.students,
+          [userId]: { ...student, haidPeriods: [newPeriod, ...(student.haidPeriods || [])] },
+        },
+      };
+    });
+  };
+
+  const handleEndHaid = async () => {
+    if (auth.role !== 'siswa' || !auth.userId) return;
+    const userId = auth.userId;
+    const res = await fetch(`/api/students/${encodeURIComponent(userId)}/haid/end`, { method: 'PUT' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.error || 'Gagal mencatat akhir haid');
+    }
+    const updated: HaidPeriod = await res.json();
+    setSystemData(prev => {
+      const student = prev.students[userId];
+      if (!student) return prev;
+      return {
+        ...prev,
+        students: {
+          ...prev.students,
+          [userId]: {
+            ...student,
+            haidPeriods: (student.haidPeriods || []).map(p => (p.id === updated.id ? updated : p)),
+          },
+        },
+      };
+    });
+  };
+
   const handleSaveBlpPeriod = async (kelas: string, year: number, month: number, startDay: number, endDay: number) => {
     const res = await fetch('/api/blp-periods', {
       method: 'PUT',
@@ -305,6 +352,8 @@ export default function App() {
           onUpdateRecord={handleUpdateRecord}
           onUpdateProfile={handleUpdateStudentProfile}
           onUpdateQuranBookmark={handleUpdateQuranBookmark}
+          onStartHaid={handleStartHaid}
+          onEndHaid={handleEndHaid}
           onLogout={handleLogout}
         />
       </Suspense>

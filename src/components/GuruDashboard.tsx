@@ -23,6 +23,10 @@ import {
   TrendingUp,
   BarChart3,
   FileSpreadsheet,
+  Heart,
+  AlertTriangle,
+  ShieldAlert,
+  Info,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, addMonths, subMonths, addDays, subDays, startOfDay } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -30,7 +34,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 import { BLP_CATEGORIES, PERLENGKAPAN_SEKOLAH_ITEMS } from '../data/activities';
-import { SystemData, DailyRecord, AuthState, ActivitySubmission } from '../types';
+import { SystemData, DailyRecord, AuthState, ActivitySubmission, HaidPeriod } from '../types';
 import { downloadRekapPDF, downloadRekapExcel } from '../utils/rekapExport';
 import { getEffectiveTotalActivities, getEffectiveCompletedCount, isDateCountedForRecap, getBlpPeriodKeyForDate } from '../utils/blpScoring';
 import PageLayout, { type NavItem } from './layout/PageLayout';
@@ -68,8 +72,68 @@ function scoreBg(s: number) {
   return 'bg-red-50 border-red-200 text-red-600';
 }
 
+// ── Haid cycle abnormality analysis ─────────────────────────────────────────
+interface HaidWarning {
+  level: 'info' | 'warning' | 'alert';
+  message: string;
+}
+
+function analyzeHaidCycles(periods: HaidPeriod[]): HaidWarning[] {
+  const warnings: HaidWarning[] = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Ongoing period checks
+  const ongoing = periods.find(p => p.endDate === null);
+  if (ongoing) {
+    const start = new Date(ongoing.startDate);
+    start.setHours(0, 0, 0, 0);
+    const days = Math.floor((today.getTime() - start.getTime()) / 86400000) + 1;
+    if (days > 15) {
+      warnings.push({
+        level: 'alert',
+        message: `Haid sudah berlangsung ${days} hari sejak ${ongoing.startDate} — kemungkinan tidak wajar atau siswa belum menekan "Selesai Haid".`,
+      });
+    }
+  }
+
+  // Completed period duration checks
+  for (const p of periods.filter(p => p.endDate !== null)) {
+    const start = new Date(p.startDate);
+    const end = new Date(p.endDate!);
+    const days = Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+    if (days > 15) {
+      warnings.push({
+        level: 'alert',
+        message: `Periode ${p.startDate} s/d ${p.endDate} berlangsung ${days} hari (wajar maks. 15 hari) — perlu verifikasi.`,
+      });
+    }
+  }
+
+  // Cycle length (interval between consecutive start dates)
+  const sorted = [...periods].sort((a, b) => a.startDate.localeCompare(b.startDate));
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(sorted[i - 1].startDate);
+    const curr = new Date(sorted[i].startDate);
+    const cycle = Math.floor((curr.getTime() - prev.getTime()) / 86400000);
+    if (cycle < 21) {
+      warnings.push({
+        level: 'alert',
+        message: `Siklus terlalu pendek: ${cycle} hari antara ${sorted[i - 1].startDate} dan ${sorted[i].startDate} (wajar min. 21 hari) — kemungkinan siswa mencatat ulang haid lebih awal.`,
+      });
+    } else if (cycle > 35) {
+      warnings.push({
+        level: 'warning',
+        message: `Siklus panjang: ${cycle} hari antara ${sorted[i - 1].startDate} dan ${sorted[i].startDate} (wajar maks. 35 hari) — mungkin perlu perhatian kesehatan.`,
+      });
+    }
+  }
+
+  return warnings;
+}
+
 export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProfile, onDeleteStudent, onReviewSubmission, onSaveBlpPeriod }: GuruDashboardProps) {
-  const [view, setView] = useState<'list' | 'detail' | 'presentation' | 'recap'>('list');
+  const [view, setView] = useState<'list' | 'detail' | 'presentation' | 'recap' | 'haid'>('list');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -126,6 +190,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
   const navItems: NavItem[] = [
     { label: 'Daftar Siswa', icon: <Users size={16} />,      onClick: () => setView('list'),  isActive: view === 'list' || view === 'detail' || view === 'presentation' },
     { label: 'Rekap Nilai',  icon: <BarChart3 size={16} />,  onClick: () => setView('recap'), isActive: view === 'recap' },
+    { label: 'Haid Siswi',   icon: <Heart size={16} />,      onClick: () => setView('haid'),  isActive: view === 'haid' },
   ];
 
   const headerActions = (
@@ -494,6 +559,190 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
             </table>
           </div>
         </main>
+        {showProfileModal && guru && (
+          <ProfileModal
+            name={guru.name}
+            currentPhotoUrl={guru.photoUrl}
+            currentBio={guru.bio}
+            onClose={() => setShowProfileModal(false)}
+            onSave={(photoUrl, bio) => onUpdateProfile(photoUrl, bio)}
+          />
+        )}
+      </PageLayout>
+    );
+  }
+
+  // ── Haid monitoring view ────────────────────────────────────────────────────
+  if (view === 'haid') {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = format(today, 'yyyy-MM-dd');
+
+    // Only female students in the guru's class
+    const femaleStudents = allStudents.filter(s => s.jenisKelamin === 'P');
+    // Also include students with no jenis_kelamin set (unknown) who have any haid records
+    const unknownWithHaid = allStudents.filter(
+      s => s.jenisKelamin !== 'P' && (s.haidPeriods || []).length > 0
+    );
+    const haidStudents = [...femaleStudents, ...unknownWithHaid];
+
+    const allWarnings = haidStudents.flatMap(s =>
+      analyzeHaidCycles(s.haidPeriods || []).map(w => ({ student: s, ...w }))
+    );
+    const alertCount = allWarnings.filter(w => w.level === 'alert').length;
+    const warnCount  = allWarnings.filter(w => w.level === 'warning').length;
+
+    return (
+      <PageLayout navItems={navItems} actions={headerActions}>
+        <main className="max-w-4xl mx-auto p-4 space-y-5 mt-4">
+
+          {/* Summary Banner */}
+          {allWarnings.length > 0 ? (
+            <div className={cn(
+              "rounded-2xl p-5 flex items-start gap-4 border",
+              alertCount > 0
+                ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+                : "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
+            )}>
+              <ShieldAlert size={24} className={alertCount > 0 ? "text-red-500 shrink-0" : "text-amber-500 shrink-0"} />
+              <div>
+                <p className={cn("font-bold", alertCount > 0 ? "text-red-800 dark:text-red-200" : "text-amber-800 dark:text-amber-200")}>
+                  {alertCount > 0
+                    ? `${alertCount} peringatan perlu tindak lanjut`
+                    : `${warnCount} catatan untuk dipantau`}
+                </p>
+                <p className="text-sm mt-0.5 text-slate-600 dark:text-slate-400">
+                  Periksa detail di bawah. Siklus tidak wajar dapat mengindikasikan siswa tidak jujur atau memerlukan perhatian kesehatan.
+                </p>
+              </div>
+            </div>
+          ) : haidStudents.length > 0 ? (
+            <div className="rounded-2xl p-5 flex items-center gap-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+              <Heart size={22} className="text-emerald-500 fill-emerald-500 shrink-0" />
+              <p className="font-semibold text-emerald-800 dark:text-emerald-200">
+                Semua siklus haid tampak normal.
+              </p>
+            </div>
+          ) : null}
+
+          {haidStudents.length === 0 ? (
+            <div className="app-card p-8 text-center text-slate-500 dark:text-slate-400">
+              <Heart size={32} className="mx-auto mb-3 text-slate-300" />
+              <p className="font-semibold">Belum ada data haid</p>
+              <p className="text-sm mt-1">Data akan muncul setelah siswi mencatat status haid di aplikasi mereka.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {haidStudents.map(s => {
+                const periods = s.haidPeriods || [];
+                const active = periods.find(p => p.endDate === null);
+                const warnings = analyzeHaidCycles(periods);
+                const hasAlert = warnings.some(w => w.level === 'alert');
+                const hasWarn  = warnings.some(w => w.level === 'warning');
+
+                return (
+                  <div key={s.id} className="app-card overflow-hidden">
+                    {/* Student header */}
+                    <div className={cn(
+                      "px-5 py-4 flex items-center justify-between gap-4 border-b",
+                      hasAlert ? "bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-900/40"
+                        : hasWarn ? "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-900/40"
+                        : "bg-slate-50 dark:bg-slate-800/60 border-slate-100 dark:border-slate-800"
+                    )}>
+                      <div>
+                        <p className="font-bold text-slate-800 dark:text-slate-100">{s.name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{s.kelas}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {hasAlert && <ShieldAlert size={16} className="text-red-500" />}
+                        {!hasAlert && hasWarn && <AlertTriangle size={16} className="text-amber-500" />}
+                        {active ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                            <Heart size={11} className="fill-rose-500 text-rose-500" />
+                            Sedang haid sejak {format(new Date(active.startDate), 'd MMM', { locale: localeId })}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                            Tidak sedang haid
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Warnings */}
+                    {warnings.length > 0 && (
+                      <div className="px-5 py-3 space-y-2 border-b border-slate-100 dark:border-slate-800">
+                        {warnings.map((w, i) => (
+                          <div key={i} className={cn(
+                            "flex items-start gap-2 text-xs rounded-lg p-3",
+                            w.level === 'alert'
+                              ? "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
+                              : w.level === 'warning'
+                              ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300"
+                              : "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                          )}>
+                            {w.level === 'alert' ? <ShieldAlert size={14} className="shrink-0 mt-0.5" />
+                              : w.level === 'warning' ? <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                              : <Info size={14} className="shrink-0 mt-0.5" />}
+                            <span>{w.message}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Period history */}
+                    {periods.length === 0 ? (
+                      <p className="px-5 py-4 text-sm text-slate-400 dark:text-slate-500 italic">Belum ada riwayat haid.</p>
+                    ) : (
+                      <div className="px-5 py-4">
+                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Riwayat ({periods.length} periode)</p>
+                        <div className="space-y-2">
+                          {[...periods]
+                            .sort((a, b) => b.startDate.localeCompare(a.startDate))
+                            .map(p => {
+                              const start = new Date(p.startDate);
+                              const end   = p.endDate ? new Date(p.endDate) : null;
+                              const days  = end
+                                ? Math.floor((end.getTime() - start.getTime()) / 86400000) + 1
+                                : Math.floor((today.getTime() - start.getTime()) / 86400000) + 1;
+                              const isOngoing = !p.endDate;
+                              const isTooLong = days > 15;
+
+                              return (
+                                <div key={p.id} className={cn(
+                                  "flex items-center justify-between text-sm rounded-xl px-4 py-2.5 border",
+                                  isOngoing
+                                    ? "bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800"
+                                    : isTooLong
+                                    ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+                                    : "bg-white dark:bg-slate-800/60 border-slate-100 dark:border-slate-700"
+                                )}>
+                                  <span className="text-slate-700 dark:text-slate-300">
+                                    {format(start, 'd MMM yyyy', { locale: localeId })}
+                                    {' → '}
+                                    {end ? format(end, 'd MMM yyyy', { locale: localeId }) : <em>berlangsung</em>}
+                                  </span>
+                                  <span className={cn(
+                                    "font-semibold text-xs ml-4 shrink-0",
+                                    isTooLong ? "text-red-600 dark:text-red-400"
+                                      : isOngoing ? "text-rose-600 dark:text-rose-400"
+                                      : "text-slate-500 dark:text-slate-400"
+                                  )}>
+                                    {days} hari{isTooLong ? ' ⚠' : ''}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </main>
+
         {showProfileModal && guru && (
           <ProfileModal
             name={guru.name}
