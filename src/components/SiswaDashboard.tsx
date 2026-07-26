@@ -38,6 +38,7 @@ import QuranReadingModal from './modals/QuranReadingModal';
 import ProfileModal from './modals/ProfileModal';
 import { downloadRekapPDF, downloadRekapExcel } from '../utils/rekapExport';
 import { SCHOOL_ONLY_ACTIVITY_IDS, isSchoolDay, getEffectiveTotalActivities, getEffectiveCompletedCount, isDateCountedForRecap } from '../utils/blpScoring';
+import PageLayout, { type NavItem } from './layout/PageLayout';
 
 const QURAN_ACTIVITY_ID = 'd5';
 const BELAJAR_ACTIVITY_ID = 'rs1';
@@ -211,54 +212,44 @@ export default function SiswaDashboard({
     URL.revokeObjectURL(url);
   };
 
-  return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans pb-20 transition-colors">
-      <header className="bg-emerald-700 dark:bg-emerald-900 text-white shadow-lg sticky top-0 z-10 transition-colors">
-        <div className="max-w-2xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowProfileModal(true)}
-                className="w-10 h-10 rounded-xl overflow-hidden bg-white dark:bg-slate-800 flex items-center justify-center transition-colors shrink-0"
-                title="Edit Profil"
-              >
-                {user.photoUrl ? (
-                  <img src={user.photoUrl} alt={user.name} className="w-full h-full object-cover" />
-                ) : (
-                  <img src="/logo.png" alt="Logo" className="w-full h-full object-contain p-1" />
-                )}
-              </button>
-              <div>
-                <h1 className="text-xl font-bold tracking-tight">BLP Harian</h1>
-                <button
-                  onClick={() => setShowProfileModal(true)}
-                  className="text-xs text-emerald-100 dark:text-emerald-300 hover:underline"
-                >
-                  Siswa: {user.name}
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setDarkMode(!darkMode)}
-                className="p-2 hover:bg-emerald-600 dark:hover:bg-emerald-800 rounded-full transition-colors"
-                title={darkMode ? "Mode Terang" : "Mode Gelap"}
-              >
-                {darkMode ? <Sun size={22} /> : <Moon size={22} />}
-              </button>
-              <button 
-                onClick={onLogout}
-                className="p-2 hover:bg-emerald-600 dark:hover:bg-emerald-800 rounded-full transition-colors"
-                title="Keluar"
-              >
-                <LogOut size={22} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+  const navItems: NavItem[] = [
+    { label: 'Harian',     icon: <LayoutDashboard size={16} />, onClick: () => setView('daily'),    isActive: view === 'daily' },
+    { label: 'Kalender',   icon: <CalendarIcon size={16} />,   onClick: () => setView('monthly'),  isActive: view === 'monthly' },
+    { label: 'Pengaturan', icon: <Settings size={16} />,       onClick: () => setView('settings'), isActive: view === 'settings' },
+  ];
 
-      <main className="max-w-2xl mx-auto p-4 space-y-6">
+  const headerActions = (
+    <>
+      <button
+        onClick={() => setShowProfileModal(true)}
+        className="w-8 h-8 rounded-full overflow-hidden bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors shrink-0"
+        title={`Edit Profil — ${user.name}`}
+      >
+        {user.photoUrl
+          ? <img src={user.photoUrl} alt={user.name} className="w-full h-full object-cover" />
+          : <img src="/logo.png" alt="Logo" className="w-full h-full object-contain p-0.5" />
+        }
+      </button>
+      <button
+        onClick={() => setDarkMode(!darkMode)}
+        className="p-2 hover:bg-emerald-600 dark:hover:bg-emerald-800 rounded-full transition-colors"
+        title={darkMode ? "Mode Terang" : "Mode Gelap"}
+      >
+        {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+      </button>
+      <button
+        onClick={onLogout}
+        className="p-2 hover:bg-emerald-600 dark:hover:bg-emerald-800 rounded-full transition-colors"
+        title="Keluar"
+      >
+        <LogOut size={20} />
+      </button>
+    </>
+  );
+
+  return (
+    <PageLayout navItems={navItems} actions={headerActions}>
+      <main className="max-w-2xl mx-auto p-4 space-y-6 pb-6">
         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4 flex items-center justify-between transition-colors">
           <button 
             onClick={() => setSelectedDate(prev => subMonths(prev, view === 'monthly' ? 1 : 0))}
@@ -575,41 +566,6 @@ export default function SiswaDashboard({
         )}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 h-16 flex items-center justify-around px-6 z-20 transition-colors">
-        <button 
-          onClick={() => setView('daily')}
-          className={cn(
-            "flex flex-col items-center gap-1 transition-colors",
-            view === 'daily' ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-600"
-          )}
-        >
-          <LayoutDashboard size={20} />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Harian</span>
-        </button>
-        
-        <button 
-          onClick={() => setView('monthly')}
-          className={cn(
-            "flex flex-col items-center gap-1 transition-colors",
-            view === 'monthly' ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-600"
-          )}
-        >
-          <CalendarIcon size={20} />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Kalender</span>
-        </button>
-
-        <button 
-          onClick={() => setView('settings')}
-          className={cn(
-            "flex flex-col items-center gap-1 transition-colors",
-            view === 'settings' ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-600"
-          )}
-        >
-          <Settings size={20} />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Pengaturan</span>
-        </button>
-      </nav>
-
       {activeModalActivityId === QURAN_ACTIVITY_ID && (
         <QuranReadingModal
           activityName={BLP_CATEGORIES.flatMap(c => c.activities).find(a => a.id === QURAN_ACTIVITY_ID)?.name || ''}
@@ -697,6 +653,6 @@ export default function SiswaDashboard({
           onSave={(photoUrl, bio) => onUpdateProfile(photoUrl, bio)}
         />
       )}
-    </div>
+    </PageLayout>
   );
 }

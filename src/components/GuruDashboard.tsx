@@ -28,6 +28,7 @@ import { BLP_CATEGORIES, PERLENGKAPAN_SEKOLAH_ITEMS } from '../data/activities';
 import { SystemData, DailyRecord, AuthState, ActivitySubmission } from '../types';
 import { downloadRekapPDF, downloadRekapExcel } from '../utils/rekapExport';
 import { getEffectiveTotalActivities, getEffectiveCompletedCount, isDateCountedForRecap, getBlpPeriodKeyForDate } from '../utils/blpScoring';
+import PageLayout, { type NavItem } from './layout/PageLayout';
 import { FileDown } from 'lucide-react';
 import ProfileModal from './modals/ProfileModal';
 import ConfirmModal from './modals/ConfirmModal';
@@ -83,45 +84,31 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
     setView('detail');
   };
 
-  const renderHeader = (title: string, subtitle: string) => (
-    <header className="bg-slate-900 text-white shadow-lg sticky top-0 z-10">
-      <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowProfileModal(true)}
-            className="w-10 h-10 rounded-xl overflow-hidden bg-slate-800 flex items-center justify-center transition-colors shrink-0"
-            title="Edit Profil"
-          >
-            {guru?.photoUrl ? (
-              <img src={guru.photoUrl} alt={guru.name} className="w-full h-full object-cover" />
-            ) : (
-              <Users className="text-slate-300 w-5 h-5" />
-            )}
-          </button>
-          <div>
-            <h1 className="text-xl font-bold">{title}</h1>
-            <p className="text-sm text-slate-400">{subtitle}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {view !== 'list' && (
-            <button 
-              onClick={() => setView('list')}
-              className="bg-slate-800 hover:bg-slate-700 p-2 rounded-xl text-sm font-bold transition-colors"
-            >
-              Kembali
-            </button>
-          )}
-          <button 
-            onClick={onLogout}
-            className="p-2 hover:bg-slate-800 rounded-full transition-colors"
-            title="Keluar"
-          >
-            <LogOut size={22} />
-          </button>
-        </div>
-      </div>
-    </header>
+  const navItems: NavItem[] = [
+    { label: 'Daftar Siswa', icon: <Users size={16} />,      onClick: () => setView('list'),  isActive: view === 'list' || view === 'detail' || view === 'presentation' },
+    { label: 'Rekap Nilai',  icon: <Calculator size={16} />, onClick: () => setView('recap'), isActive: view === 'recap' },
+  ];
+
+  const headerActions = (
+    <>
+      <button
+        onClick={() => setShowProfileModal(true)}
+        className="w-8 h-8 rounded-full overflow-hidden bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors shrink-0"
+        title="Edit Profil"
+      >
+        {guru?.photoUrl
+          ? <img src={guru.photoUrl} alt={guru.name} className="w-full h-full object-cover" />
+          : <Users size={16} className="text-white" />
+        }
+      </button>
+      <button
+        onClick={onLogout}
+        className="p-2 hover:bg-emerald-600 rounded-full transition-colors"
+        title="Keluar"
+      >
+        <LogOut size={20} />
+      </button>
+    </>
   );
 
   const renderDateSelector = () => (
@@ -165,9 +152,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
 
   if (view === 'list') {
     return (
-      <div className="min-h-screen bg-slate-50 font-sans pb-20">
-        {renderHeader("Dashboard Guru", "Daftar Siswa BLP Harian")}
-        
+      <PageLayout navItems={navItems} actions={headerActions}>
         <main className="max-w-4xl mx-auto p-4 space-y-6 mt-4">
           <div className="flex gap-4 mb-4">
             <button
@@ -268,7 +253,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
             }}
           />
         )}
-      </div>
+      </PageLayout>
     );
   }
 
@@ -278,8 +263,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
     const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
     return (
-      <div className="min-h-screen bg-slate-50 font-sans pb-20">
-        {renderHeader("Rekap Nilai Bulanan", "Rata-rata Nilai BLP Siswa")}
+      <PageLayout navItems={navItems} actions={headerActions}>
         <main className="max-w-4xl mx-auto p-4 space-y-6 mt-4">
           {renderDateSelector()}
 
@@ -371,7 +355,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
             onSave={(photoUrl, bio) => onUpdateProfile(photoUrl, bio)}
           />
         )}
-      </div>
+      </PageLayout>
     );
   }
 
@@ -493,10 +477,14 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans pb-20">
-      {renderHeader(`Detail Siswa: ${selectedStudent.name}`, "Koreksi & Penilaian BLP")}
-      
+    <PageLayout navItems={navItems} actions={headerActions}>
       <div className="max-w-4xl mx-auto px-4 mt-4 flex flex-wrap gap-3">
+        <button
+          onClick={() => setView('list')}
+          className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors"
+        >
+          ← Kembali
+        </button>
         <button
           onClick={() => setView('presentation')}
           className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors"
@@ -549,6 +537,6 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
           onClose={() => setReviewingActivityId(null)}
         />
       )}
-    </div>
+    </PageLayout>
   );
 }
