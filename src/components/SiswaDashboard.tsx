@@ -259,8 +259,8 @@ export default function SiswaDashboard({
 
   return (
     <PageLayout navItems={navItems} actions={headerActions}>
-      <main className="max-w-2xl mx-auto p-4 space-y-6 pb-6">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4 flex items-center justify-between transition-colors">
+        <main className="max-w-2xl mx-auto p-4 sm:p-5 space-y-6 pb-8">
+        <div className="app-card p-4 flex items-center justify-between transition-colors">
           <button 
             onClick={() => setSelectedDate(prev => subMonths(prev, view === 'monthly' ? 1 : 0))}
             className={cn(
@@ -306,7 +306,7 @@ export default function SiswaDashboard({
 
         {view === 'settings' ? (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 space-y-6">
+            <section className="app-card p-5 sm:p-6 space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
@@ -347,7 +347,7 @@ export default function SiswaDashboard({
                 </div>
                 <button 
                   onClick={exportData}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors"
+                  className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors shadow-sm shadow-emerald-200 dark:shadow-none"
                 >
                   <Download size={16} />
                   Ekspor
@@ -357,7 +357,7 @@ export default function SiswaDashboard({
           </div>
         ) : view === 'daily' ? (
           <>
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 transition-colors">
+            <div className="app-card p-5 sm:p-6 transition-colors">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold flex items-center gap-2 dark:text-slate-200">
                   <Trophy className="text-amber-500 w-5 h-5" />
@@ -376,7 +376,7 @@ export default function SiswaDashboard({
                 />
               </div>
               
-              <div className="mt-4 p-4 bg-gradient-to-r from-amber-50 to-yellow-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-center justify-between transition-colors">
+              <div className="mt-4 p-4 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/25 dark:to-yellow-900/15 border border-amber-200 dark:border-amber-800/70 rounded-2xl flex items-center justify-between transition-colors">
                 <div>
                   <p className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">⭐ Nilai Hari Ini</p>
                   <p className="text-xs text-amber-500 mt-0.5">{completionRate === 100 ? 'Luar biasa! Sempurna! 🎉' : 'Ayo selesaikan amaliyahmu!'}</p>
@@ -413,9 +413,9 @@ export default function SiswaDashboard({
                             "flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left shadow-sm",
                             !isEditableDay && "opacity-60 cursor-not-allowed",
                             isSchoolOnly && "opacity-50 cursor-not-allowed",
-                            isDone 
+                            isDone
                               ? cn(cat.doneBg, cat.doneBorder)
-                              : cn("bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800", cat.hover)
+                              : cn("bg-white/90 dark:bg-slate-900/90 border-slate-100 dark:border-slate-800", cat.hover)
                           )}
                         >
                           <div className={cn(
@@ -463,12 +463,13 @@ export default function SiswaDashboard({
                     })}
                   </div>
                 </section>
-              ))}
+                );
+              })}
             </div>
           </>
         ) : (
           <div className="space-y-6 animate-in fade-in duration-500">
-             <div className="bg-emerald-600 dark:bg-emerald-800 text-white rounded-2xl p-6 shadow-md transition-colors">
+             <div className="bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-600 text-white rounded-2xl p-6 shadow-lg shadow-emerald-900/10 transition-colors">
               <h3 className="text-sm font-medium text-emerald-100 dark:text-emerald-200 mb-1">Total Capaian Bulan Ini</h3>
               <div className="flex items-end gap-2">
                 <span className="text-4xl font-bold">{Math.round(monthlyStats.rate)}%</span>
@@ -478,7 +479,7 @@ export default function SiswaDashboard({
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4 transition-colors">
+             <div className="app-card p-4 transition-colors">
               <h4 className="font-bold text-sm text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
                 <FileDown size={16} className="text-emerald-600 dark:text-emerald-400" />
                 Rekap Bulanan
@@ -486,7 +487,7 @@ export default function SiswaDashboard({
               <div className="flex gap-2">
                 <button
                   onClick={() => downloadRekapPDF(user, selectedDate)}
-                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-colors"
+                   className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-colors"
                 >
                   <FileDown size={14} /> PDF
                 </button>
@@ -499,7 +500,7 @@ export default function SiswaDashboard({
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4 transition-colors">
+             <div className="app-card p-4 transition-colors">
               <div className="grid grid-cols-7 gap-1 mb-2">
                 {['M', 'S', 'S', 'R', 'K', 'J', 'S'].map((d, i) => (
                   <div key={i} className="text-center text-[10px] font-bold text-slate-400 dark:text-slate-500 py-1">
@@ -544,7 +545,7 @@ export default function SiswaDashboard({
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 transition-colors">
+             <div className="app-card p-5 sm:p-6 transition-colors">
               <h4 className="font-bold mb-4 text-slate-700 dark:text-slate-200">Analisis Capaian</h4>
               <div className="space-y-4">
                 {BLP_CATEGORIES.map(cat => {

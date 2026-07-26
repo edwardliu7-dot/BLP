@@ -8,9 +8,9 @@ const CrescentStar = () => (
 
 export default function SiteFooter() {
   return (
-    <footer className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-800 text-emerald-300 transition-colors">
-      <div className="h-0.5 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400" />
-      <p className="text-xs text-center py-3">
+    <footer className="bg-gradient-to-r from-[#063b2d] via-emerald-900 to-[#075e58] text-emerald-200 transition-colors">
+      <div className="h-0.5 bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400" />
+      <p className="text-[11px] text-center py-3 tracking-wide">
         <CrescentStar />
         © 2025 BLP Harian · SMP TISA Islamic School
         <CrescentStar />

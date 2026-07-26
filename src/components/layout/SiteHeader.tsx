@@ -28,22 +28,21 @@ const GeometricOverlay = () => (
 
 export default function SiteHeader({ navItems, actions }: SiteHeaderProps) {
   return (
-    <header className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-800 text-white shadow-xl sticky top-0 z-10 transition-colors">
-      {/* Gold top accent line */}
-      <div className="h-0.5 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400" />
+    <header className="bg-gradient-to-br from-[#063b2d] via-emerald-900 to-[#075e58] text-white shadow-[0_10px_30px_rgba(3,64,46,0.2)] sticky top-0 z-10 transition-colors overflow-hidden">
+      <div className="h-1 bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400" />
 
-      <GeometricOverlay />
+      <div className="absolute inset-0 app-pattern opacity-70" />
 
       {/* Top bar: logo + actions */}
-      <div className="relative max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+      <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
         {/* Left: Logo + School name */}
         <div className="flex items-center gap-3 shrink-0">
-          <div className="w-9 h-9 rounded-xl overflow-hidden bg-white/15 border border-white/20 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl overflow-hidden bg-white/15 border border-white/25 flex items-center justify-center shadow-inner">
             <img src="/logo.png" alt="Logo" className="w-full h-full object-contain p-0.5" />
           </div>
           <div className="leading-tight">
             <p className="font-extrabold text-base leading-none tracking-tight">BLP Harian</p>
-            <p className="text-[11px] text-emerald-200 leading-none mt-0.5">SMP TISA Islamic School</p>
+            <p className="text-[11px] text-emerald-200 leading-none mt-1">SMP TISA Islamic School</p>
           </div>
         </div>
 
@@ -57,14 +56,14 @@ export default function SiteHeader({ navItems, actions }: SiteHeaderProps) {
 
       {/* Navigation tabs */}
       {navItems && navItems.length > 0 && (
-        <div className="relative max-w-4xl mx-auto px-4 flex gap-1 overflow-x-auto">
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 flex gap-1 overflow-x-auto">
           {navItems.map((item) => (
             <button
               key={item.label}
               onClick={item.onClick}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold rounded-t-xl transition-all whitespace-nowrap border-b-2 ${
                 item.isActive
-                  ? 'bg-white/20 border-amber-400 text-white'
+                  ? 'bg-white/18 border-amber-300 text-white shadow-[inset_0_-2px_0_rgba(253,230,138,0.35)]'
                   : 'border-transparent text-emerald-200 hover:text-white hover:bg-white/10'
               }`}
             >

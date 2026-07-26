@@ -12,7 +12,7 @@ interface PageLayoutProps {
 
 export default function PageLayout({ children, navItems, actions }: PageLayoutProps) {
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
+    <div className="app-shell min-h-screen flex flex-col text-slate-900 dark:text-slate-100 transition-colors">
       <SiteHeader navItems={navItems} actions={actions} />
       <main className="flex-1 w-full">
         {children}

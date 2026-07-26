@@ -112,7 +112,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
   );
 
   const renderDateSelector = () => (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex items-center justify-between mb-6">
+    <div className="app-card p-4 flex items-center justify-between mb-6">
       <button 
         onClick={() => setSelectedDate(prev => subMonths(prev, view === 'recap' ? 1 : 0))}
         className={cn("p-2 hover:bg-slate-100 rounded-full transition-colors", view !== 'recap' && "hidden")}
@@ -164,12 +164,12 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
             </button>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-4 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="font-bold flex items-center gap-2 text-slate-700">
+          <div className="app-card overflow-hidden">
+            <div className="p-4 app-card-muted border-b border-emerald-100 dark:border-emerald-900/40 flex items-center justify-between">
+              <h3 className="font-bold flex items-center gap-2 text-emerald-950 dark:text-emerald-100">
                 <Users size={18} /> Data Siswa
               </h3>
-              <span className="text-sm font-medium text-slate-500">{students.length} Siswa Terdaftar</span>
+              <span className="text-sm font-medium text-emerald-700/70 dark:text-emerald-200/70">{students.length} Siswa Terdaftar</span>
             </div>
             <div className="divide-y divide-slate-100">
               {students.length === 0 ? (
@@ -186,10 +186,10 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
                     <button
                       key={s.id}
                       onClick={() => handleSelectStudent(s.id)}
-                      className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors text-left"
+                        className="w-full flex items-center justify-between p-4 hover:bg-emerald-50/70 dark:hover:bg-emerald-900/20 transition-colors text-left"
                     >
                       <div>
-                        <p className="font-bold text-slate-800">{s.name}</p>
+                        <p className="font-bold text-emerald-950 dark:text-slate-100">{s.name}</p>
                         <p className="text-xs text-slate-500">Amaliyah Hari Ini: {sCount}/{totalActivities}</p>
                       </div>
                       <div className="flex items-center gap-4">
@@ -198,7 +198,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
                             href={`https://wa.me/${s.whatsapp}?text=${encodeURIComponent(`Halo ${s.name}, jangan lupa untuk mengisi Buku Laporan Pendidikan (BLP) hari ini ya!`)}`} 
                             target="_blank" 
                             rel="noreferrer"
-                            className="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-full transition-colors"
+                             className="p-2 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 rounded-full transition-colors"
                             title="Kirim Pengingat WA"
                           >
                             <MessageCircle size={16} />
@@ -219,7 +219,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
                           </button>
                         </div>
                         <div className="text-right">
-                          <span className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded-md text-xs font-bold">
+                           <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-1 rounded-md text-xs font-bold">
                             Nilai: {autoStudentScore}
                           </span>
                           <ChevronRight className="inline-block text-slate-400 ml-2" size={16} />
@@ -287,11 +287,11 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
             />
           )}
 
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden overflow-x-auto">
+          <div className="app-card overflow-hidden overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-100 text-slate-600 text-sm">
-                  <th className="p-3 border-b border-slate-200 font-semibold sticky left-0 bg-slate-100 z-10">Nama Siswa</th>
+                <tr className="app-card-muted text-emerald-900 dark:text-emerald-100 text-sm">
+                  <th className="p-3 border-b border-emerald-100 dark:border-emerald-900/40 font-semibold sticky left-0 app-card-muted z-10">Nama Siswa</th>
                   <th className="p-3 border-b border-slate-200 font-semibold text-center">Rata-Rata Bulan Ini</th>
                   <th className="p-3 border-b border-slate-200 font-semibold text-center">Hari Dinilai</th>
                   <th className="p-3 border-b border-slate-200 font-semibold text-center">Rekap</th>
@@ -318,7 +318,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
 
                   return (
                     <tr key={s.id} className="hover:bg-slate-50">
-                      <td className="p-3 font-medium text-slate-800 sticky left-0 bg-white group-hover:bg-slate-50 z-10">{s.name}</td>
+                      <td className="p-3 font-medium text-slate-800 dark:text-slate-100 sticky left-0 bg-white dark:bg-slate-900 z-10">{s.name}</td>
                       <td className="p-3 text-center font-bold text-emerald-600">{avg}</td>
                       <td className="p-3 text-center text-sm text-slate-500">{scoredDaysCount} hari</td>
                       <td className="p-3 text-center">
@@ -376,7 +376,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
         </div>
       )}
 
-      <div className={cn("bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col md:flex-row gap-6 md:items-center justify-between", isPresentation && "shadow-xl border-emerald-200 bg-emerald-50")}>
+      <div className={cn("app-card p-6 flex flex-col md:flex-row gap-6 md:items-center justify-between", isPresentation && "shadow-xl border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30")}>
         <div>
           <h3 className="font-bold flex items-center gap-2 text-slate-700 text-lg">
             Progress BLP
@@ -384,7 +384,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
           <p className="text-sm text-slate-500">{completedCount} dari {totalActivities} kegiatan selesai</p>
         </div>
         
-        <div className={cn("bg-emerald-600 text-white p-4 rounded-xl text-center min-w-[150px]", !isPresentation && "shadow-sm")}>
+        <div className={cn("bg-gradient-to-br from-emerald-700 to-teal-600 text-white p-4 rounded-xl text-center min-w-[150px]", !isPresentation && "shadow-sm")}>
           <p className="text-sm font-bold uppercase tracking-wider opacity-80 mb-1">Nilai Otomatis</p>
           <p className="text-4xl font-bold">{autoScore}</p>
         </div>
@@ -415,8 +415,8 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
                       "flex items-center gap-4 p-4 rounded-2xl border text-left",
                       isDone 
                         ? "bg-emerald-50 border-emerald-200" 
-                        : "bg-white border-slate-200 opacity-70",
-                      isPresentation && "shadow-sm bg-white"
+                        : "bg-white/90 dark:bg-slate-900/90 border-slate-200 dark:border-slate-800 opacity-70",
+                       isPresentation && "shadow-sm bg-white dark:bg-slate-900"
                     )}
                   >
                     <div className={cn(
