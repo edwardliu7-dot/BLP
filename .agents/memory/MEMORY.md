@@ -14,3 +14,4 @@
 - [Redacting secrets in exec output](redact-secret-in-exec-output.md) — mask both raw AND URL-encoded/transformed forms of a secret before logging command output, or transformed forms leak past a naive string replace.
 - [Student accounts owned by EOB5guru](student-accounts-external-owner.md) — BLP app must never create/register student or guru accounts itself; accounts are provisioned by the separate EOB5guru app into the shared DB.
 - [Loading performance architecture](loading-performance.md) — login page shows instantly (no pre-login server call); /api/me/dashboard-data returns scoped data post-login; dashboards are React.lazy chunks.
+- [Mockup sandbox dependency setup](mockup-sandbox-dependency-setup.md) — generated sandbox may inherit workspace dependencies; preview config must avoid unavailable optional plugins/packages.
