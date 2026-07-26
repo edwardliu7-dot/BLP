@@ -1,4 +1,4 @@
-import { useState, useMemo, type FormEvent } from 'react';
+import { useState, useMemo, useEffect, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   LogOut, 
@@ -51,8 +51,50 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Module-level cache so each student's photo is fetched at most once per session.
+const _photoCache = new Map<string, string | null>();
+const _photoInflight = new Map<string, Promise<string | null>>();
+
+function fetchStudentPhoto(studentId: string): Promise<string | null> {
+  if (_photoCache.has(studentId)) return Promise.resolve(_photoCache.get(studentId)!);
+  if (_photoInflight.has(studentId)) return _photoInflight.get(studentId)!;
+  const p = fetch(`/api/students/${studentId}/photo`)
+    .then(r => r.ok ? r.json() : { photoUrl: null })
+    .then((data: { photoUrl: string | null }) => {
+      const url = data.photoUrl || null;
+      _photoCache.set(studentId, url);
+      _photoInflight.delete(studentId);
+      return url;
+    })
+    .catch(() => {
+      _photoCache.set(studentId, null);
+      _photoInflight.delete(studentId);
+      return null;
+    });
+  _photoInflight.set(studentId, p);
+  return p;
+}
+
 // Reusable student avatar: shows photo if available, otherwise colourful initials.
-function StudentAvatar({ name, photoUrl, size = 'md' }: { name: string; photoUrl?: string | null; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
+// Photos are fetched lazily on first render and cached for the session.
+function StudentAvatar({ name, studentId, size = 'md' }: { name: string; studentId?: string; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
+  const [photoUrl, setPhotoUrl] = useState<string | null>(() =>
+    studentId && _photoCache.has(studentId) ? _photoCache.get(studentId)! : null
+  );
+
+  useEffect(() => {
+    if (!studentId) return;
+    if (_photoCache.has(studentId)) {
+      setPhotoUrl(_photoCache.get(studentId)!);
+      return;
+    }
+    let cancelled = false;
+    fetchStudentPhoto(studentId).then(url => {
+      if (!cancelled) setPhotoUrl(url);
+    });
+    return () => { cancelled = true; };
+  }, [studentId]);
+
   const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
   const dims = size === 'sm' ? 'w-8 h-8 text-[10px]' : size === 'lg' ? 'w-14 h-14 text-base' : size === 'xl' ? 'w-20 h-20 text-2xl' : 'w-10 h-10 text-xs';
   return photoUrl
@@ -361,7 +403,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
                         onClick={() => handleSelectStudent(s.id)}
                         className="flex items-center gap-3 text-left flex-1 min-w-0"
                       >
-                        <StudentAvatar name={s.name} photoUrl={s.photoUrl} size="sm" />
+                        <StudentAvatar name={s.name} studentId={s.id} size="sm" />
                         <div className="min-w-0">
                           <p className="font-bold text-emerald-950 dark:text-slate-100 truncate">{s.name}</p>
                           <p className="text-xs text-slate-400">{s.kelas}</p>
@@ -659,7 +701,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
                         : "bg-slate-50 dark:bg-slate-800/60 border-slate-100 dark:border-slate-800"
                     )}>
                       <div className="flex items-center gap-3">
-                        <StudentAvatar name={s.name} photoUrl={s.photoUrl} size="md" />
+                        <StudentAvatar name={s.name} studentId={s.id} size="md" />
                         <div>
                           <p className="font-bold text-slate-800 dark:text-slate-100">{s.name}</p>
                           <p className="text-xs text-slate-500 dark:text-slate-400">{s.kelas}</p>
@@ -781,7 +823,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
       {isPresentation && (
         <div className="text-center mb-10">
           <div className="flex justify-center mb-4">
-            <StudentAvatar name={selectedStudent.name} photoUrl={selectedStudent.photoUrl} size="xl" />
+            <StudentAvatar name={selectedStudent.name} studentId={selectedStudent.id} size="xl" />
           </div>
           <h2 className="text-4xl font-bold text-slate-800 mb-2">Hasil BLP: {selectedStudent.name}</h2>
           <p className="text-xl text-slate-500">{format(selectedDate, 'EEEE, d MMMM yyyy', { locale: localeId })}</p>
@@ -791,7 +833,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
       {/* Student identity strip — detail view only */}
       {!isPresentation && (
         <div className="flex items-center gap-4 app-card px-5 py-4">
-          <StudentAvatar name={selectedStudent.name} photoUrl={selectedStudent.photoUrl} size="lg" />
+          <StudentAvatar name={selectedStudent.name} studentId={selectedStudent.id} size="lg" />
           <div>
             <p className="font-bold text-lg text-slate-800 dark:text-slate-100 leading-tight">{selectedStudent.name}</p>
             <p className="text-sm text-slate-500 dark:text-slate-400">{selectedStudent.kelas}</p>

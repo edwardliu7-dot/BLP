@@ -238,13 +238,39 @@ app.get('/api/me/dashboard-data', async (req, res) => {
 
     const kelasWali = guru.kelasWali[0];
 
-    // Fetch all students (small table) and records; filter by normalised kelas in JS
-    // so spelling variants in the DB are handled the same way as the rest of the app.
-    const [studentRes, recordsRes, periodsRes, haidRes] = await Promise.all([
-      pool.query('SELECT id, username, name, kelas, email, whatsapp, photo_url, bio, quran_bookmark, jenis_kelamin FROM students'),
-      pool.query('SELECT student_id, record_date, completed_activities, score, submissions FROM daily_records'),
+    // Phase 1: Fetch students WITHOUT photo_url (base64 photos can be several MB each
+    // and are the main cause of slow / timed-out loads on mobile).
+    // Filter by normalised kelas in JS to handle DB spelling variants consistently.
+    const studentRes = await pool.query(
+      'SELECT id, username, name, kelas, email, whatsapp, bio, quran_bookmark, jenis_kelamin FROM students'
+    );
+
+    const classStudentIds: string[] = [];
+    const classStudentRows: typeof studentRes.rows = [];
+    for (const row of studentRes.rows) {
+      if (normalizeKelas(row.kelas) === kelasWali) {
+        classStudentIds.push(row.id);
+        classStudentRows.push(row);
+      }
+    }
+
+    // Phase 2: Fetch only records/haid for this class's students, plus blp_periods.
+    // Using ANY($1) keeps a single round-trip and avoids a full-table scan.
+    const noRows = { rows: [] as any[] };
+    const [recordsRes, periodsRes, haidRes] = await Promise.all([
+      classStudentIds.length > 0
+        ? pool.query(
+            'SELECT student_id, record_date, completed_activities, score, submissions FROM daily_records WHERE student_id = ANY($1)',
+            [classStudentIds]
+          )
+        : Promise.resolve(noRows),
       pool.query('SELECT kelas, year, month, start_day, end_day FROM blp_periods'),
-      pool.query('SELECT id, student_id, start_date, end_date FROM haid_periods ORDER BY start_date DESC'),
+      classStudentIds.length > 0
+        ? pool.query(
+            'SELECT id, student_id, start_date, end_date FROM haid_periods WHERE student_id = ANY($1) ORDER BY start_date DESC',
+            [classStudentIds]
+          )
+        : Promise.resolve(noRows),
     ]);
 
     // Group records by student_id
@@ -271,10 +297,10 @@ app.get('/api/me/dashboard-data', async (req, res) => {
       });
     }
 
-    // Filter students to this guru's class only
+    // Build students map — photoUrl is intentionally omitted here.
+    // The frontend fetches it lazily via GET /api/students/:id/photo.
     const students: SystemData['students'] = {};
-    for (const row of studentRes.rows) {
-      if (normalizeKelas(row.kelas) !== kelasWali) continue;
+    for (const row of classStudentRows) {
       const student: UserProgress = {
         id: row.id,
         username: row.username,
@@ -282,7 +308,7 @@ app.get('/api/me/dashboard-data', async (req, res) => {
         kelas: normalizeKelas(row.kelas),
         email: row.email,
         whatsapp: row.whatsapp,
-        photoUrl: row.photo_url,
+        photoUrl: null, // loaded on-demand; see /api/students/:id/photo
         bio: row.bio,
         quranBookmark: row.quran_bookmark || null,
         jenisKelamin: row.jenis_kelamin || null,
@@ -671,6 +697,32 @@ app.put('/api/gurus/:id/profile', requireAuth('guru', 'id'), async (req, res) =>
   } catch (err) {
     console.error('Failed to update guru profile', err);
     res.status(500).json({ error: 'Gagal menyimpan profil' });
+  }
+});
+
+// Guru: fetch a single student's photo on-demand.
+// Photo (base64) is excluded from /api/me/dashboard-data to keep that
+// response small enough to load quickly on mobile connections.
+app.get('/api/students/:id/photo', requireAuth('guru'), async (req, res) => {
+  try {
+    const guru = await loadGuru(req.session.userId!);
+    if (!guru) return res.status(403).json({ error: 'Akses ditolak' });
+
+    const result = await pool.query(
+      'SELECT photo_url, kelas FROM students WHERE id = $1',
+      [req.params.id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Siswa tidak ditemukan' });
+
+    const row = result.rows[0];
+    if (!guru.kelasWali.includes(normalizeKelas(row.kelas))) {
+      return res.status(403).json({ error: 'Akses ditolak' });
+    }
+
+    res.json({ photoUrl: row.photo_url || null });
+  } catch (err) {
+    console.error('Failed to fetch student photo', err);
+    res.status(500).json({ error: 'Gagal mengambil foto' });
   }
 });
 
