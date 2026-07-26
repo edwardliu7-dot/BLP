@@ -14,8 +14,6 @@ import {
   GraduationCap,
   Download,
   Bell,
-  Moon,
-  Sun,
   LogOut,
   Mic,
   PenLine,
@@ -99,8 +97,6 @@ function cn(...inputs: ClassValue[]) {
 interface SiswaDashboardProps {
   user: UserProgress;
   blpPeriods: Record<string, BlpPeriod>;
-  darkMode: boolean;
-  setDarkMode: (val: boolean) => void;
   remindersEnabled: boolean;
   toggleReminders: () => void;
   onUpdateRecord: (dateKey: string, updatedRecord: DailyRecord) => void;
@@ -114,8 +110,6 @@ interface SiswaDashboardProps {
 export default function SiswaDashboard({ 
   user, 
   blpPeriods,
-  darkMode, 
-  setDarkMode, 
   remindersEnabled, 
   toggleReminders,
   onUpdateRecord,
@@ -266,13 +260,6 @@ export default function SiswaDashboard({
           ? <img src={user.photoUrl} alt={user.name} className="w-full h-full object-cover" />
           : <img src="/logo.png" alt="Logo" className="w-full h-full object-contain p-0.5" />
         }
-      </button>
-      <button
-        onClick={() => setDarkMode(!darkMode)}
-        className="p-2 hover:bg-emerald-600 dark:hover:bg-emerald-800 rounded-full transition-colors"
-        title={darkMode ? "Mode Terang" : "Mode Gelap"}
-      >
-        {darkMode ? <Sun size={20} /> : <Moon size={20} />}
       </button>
       <button
         onClick={onLogout}

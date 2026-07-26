@@ -8,7 +8,6 @@ import LoadingScreen from './components/LoadingScreen';
 const SiswaDashboard = lazy(() => import('./components/SiswaDashboard'));
 const GuruDashboard = lazy(() => import('./components/GuruDashboard'));
 
-const THEME_KEY = 'blp_theme';
 const REMINDERS_KEY = 'blp_reminders';
 const AUTH_KEY = 'blp_auth_state';
 
@@ -18,7 +17,6 @@ export default function App() {
   const [status, setStatus] = useState<AppStatus>('booting');
   const [systemData, setSystemData] = useState<SystemData>({ students: {}, gurus: {}, blpPeriods: {} });
   const [auth, setAuth] = useState<AuthState>({ role: null });
-  const [darkMode, setDarkMode] = useState(false);
   const [remindersEnabled, setRemindersEnabled] = useState(false);
 
   // Fetch data scoped to the currently logged-in user (via session cookie).
@@ -29,12 +27,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Apply theme synchronously before any async work so there is no flash.
-    const storedTheme = localStorage.getItem(THEME_KEY);
-    if (storedTheme === 'dark' || (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      setDarkMode(true);
-      document.documentElement.classList.add('dark');
-    }
+    // Dark mode is always on — apply immediately to avoid any flash.
+    document.documentElement.classList.add('dark');
+
     const storedReminders = localStorage.getItem(REMINDERS_KEY);
     if (storedReminders === 'true' && 'Notification' in window && Notification.permission === 'granted') {
       setRemindersEnabled(true);
@@ -62,18 +57,6 @@ export default function App() {
       }
     })();
   }, [fetchDashboardData]);
-
-  // Handle Theme
-  useEffect(() => {
-    if (status === 'booting') return;
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem(THEME_KEY, 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem(THEME_KEY, 'light');
-    }
-  }, [darkMode, status]);
 
   // Called by Login after the login API succeeds.
   // Returns a Promise so Login can keep its spinner running until data is ready.
@@ -345,8 +328,6 @@ export default function App() {
         <SiswaDashboard
           user={user}
           blpPeriods={systemData.blpPeriods}
-          darkMode={darkMode}
-          setDarkMode={setDarkMode}
           remindersEnabled={remindersEnabled}
           toggleReminders={toggleReminders}
           onUpdateRecord={handleUpdateRecord}
