@@ -12,7 +12,7 @@ export default function SiteFooter() {
       <div className="h-0.5 bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400" />
       <p className="text-[11px] text-center py-3 tracking-wide">
         <CrescentStar />
-        © 2025 BLP Harian · SMP TISA Islamic School
+        © {new Date().getFullYear()} BLP Harian · SMP TISA Islamic School
         <CrescentStar />
       </p>
     </footer>
