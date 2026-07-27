@@ -28,7 +28,7 @@ import {
   ShieldAlert,
   Info,
 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, addMonths, subMonths, addDays, subDays, startOfDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, addMonths, subMonths, addDays, subDays, startOfDay, parseISO } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -221,21 +221,21 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
 
   // Compute stats for today
   const todayStats = useMemo(() => {
-    const today = new Date();
-    const todayKey = format(today, 'yyyy-MM-dd');
-    const todayTotal = getEffectiveTotalActivities(today);
+    const d = selectedDate;
+    const dKey = format(d, 'yyyy-MM-dd');
+    const dTotal = getEffectiveTotalActivities(d);
     let filled = 0;
     let totalScore = 0;
     allStudents.forEach(s => {
-      const r = s.records[todayKey];
-      const count = r ? getEffectiveCompletedCount(today, r.completedActivities) : 0;
+      const r = s.records[dKey];
+      const count = r ? getEffectiveCompletedCount(d, r.completedActivities) : 0;
       if (count > 0) filled++;
-      totalScore += Math.round((count / todayTotal) * 100);
+      totalScore += Math.round((count / dTotal) * 100);
     });
     const notFilled = allStudents.length - filled;
     const avg = allStudents.length > 0 ? (totalScore / allStudents.length).toFixed(1) : '0';
     return { total: allStudents.length, filled, notFilled, avg };
-  }, [allStudents]);
+  }, [allStudents, selectedDate]);
 
   const handleSelectStudent = (id: string) => {
     setSelectedStudentId(id);
@@ -310,9 +310,10 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
   );
 
   if (view === 'list') {
-    const today = new Date();
+    const today = selectedDate;
     const todayKey2 = format(today, 'yyyy-MM-dd');
     const todayTotalAct = getEffectiveTotalActivities(today);
+    const isListToday = isSameDay(selectedDate, new Date());
 
     return (
       <PageLayout navItems={navItems} actions={headerActions}>
@@ -322,8 +323,8 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: 'Total Siswa', value: String(todayStats.total), sub: allowedClasses.join(', '), icon: Users, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-50' },
-              { label: 'Sudah Isi Hari Ini', value: String(todayStats.filled), sub: `${todayStats.total > 0 ? Math.round((todayStats.filled/todayStats.total)*100) : 0}% dari total`, icon: CheckCircle2, iconColor: 'text-teal-600', iconBg: 'bg-teal-50' },
-              { label: 'Rata-rata Skor', value: todayStats.avg, sub: 'Hari ini', icon: TrendingUp, iconColor: 'text-amber-600', iconBg: 'bg-amber-50' },
+              { label: 'Sudah Isi', value: String(todayStats.filled), sub: `${todayStats.total > 0 ? Math.round((todayStats.filled/todayStats.total)*100) : 0}% dari total`, icon: CheckCircle2, iconColor: 'text-teal-600', iconBg: 'bg-teal-50' },
+              { label: 'Rata-rata Skor', value: todayStats.avg, sub: format(selectedDate, 'd MMM yyyy', { locale: localeId }), icon: TrendingUp, iconColor: 'text-amber-600', iconBg: 'bg-amber-50' },
               { label: 'Belum Isi', value: String(todayStats.notFilled), sub: 'Perlu diingatkan', icon: Bell, iconColor: 'text-red-500', iconBg: 'bg-red-50' },
             ].map(({ label, value, sub, icon: Icon, iconColor, iconBg }) => (
               <div key={label} className="app-card p-4 flex items-start justify-between gap-2">
@@ -342,14 +343,53 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
           {/* Student list card */}
           <div className="app-card overflow-hidden">
             <div className="p-4 app-card-muted border-b border-emerald-100 dark:border-emerald-900/40 flex flex-wrap items-center gap-3 justify-between">
+              {/* Title + count */}
               <div>
                 <h3 className="font-bold flex items-center gap-2 text-emerald-950 dark:text-emerald-100">
-                  <Users size={18} /> Daftar Siswa — {format(today, 'EEEE, d MMMM yyyy', { locale: localeId })}
+                  <Users size={18} /> Daftar Siswa
                 </h3>
                 <span className="text-sm font-medium text-emerald-700/70 dark:text-emerald-200/70">{allStudents.length} Siswa Terdaftar</span>
               </div>
+
+              {/* Date navigator pill */}
+              <div className="flex items-center gap-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm px-1 py-1">
+                <button
+                  onClick={() => setSelectedDate(prev => subDays(prev, 1))}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300"
+                  title="Hari sebelumnya"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <label className="relative cursor-pointer select-none">
+                  <span className="px-2 py-0.5 text-sm font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                    {format(selectedDate, 'EEE, d MMM yyyy', { locale: localeId })}
+                  </span>
+                  <input
+                    type="date"
+                    value={format(selectedDate, 'yyyy-MM-dd')}
+                    onChange={e => { if (e.target.value) setSelectedDate(startOfDay(parseISO(e.target.value))); }}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                  />
+                </label>
+                <button
+                  onClick={() => setSelectedDate(prev => addDays(prev, 1))}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300"
+                  title="Hari berikutnya"
+                >
+                  <ChevronRight size={16} />
+                </button>
+                {!isListToday && (
+                  <button
+                    onClick={() => setSelectedDate(startOfDay(new Date()))}
+                    className="ml-1 mr-0.5 px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-800/50 transition-colors whitespace-nowrap"
+                  >
+                    Hari ini
+                  </button>
+                )}
+              </div>
+
+              {/* Search + Rekap */}
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Search */}
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
@@ -373,7 +413,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
             <div className="hidden sm:grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-0 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-700 text-xs uppercase tracking-wide font-semibold text-slate-500 dark:text-slate-400">
               <div className="px-4 py-2.5">Nama Siswa</div>
               <div className="px-4 py-2.5 text-center">Progres</div>
-              <div className="px-4 py-2.5 text-center">Skor Hari Ini</div>
+              <div className="px-4 py-2.5 text-center">Skor</div>
               <div className="px-4 py-2.5 text-center">Status</div>
               <div className="px-4 py-2.5 text-center">Aksi</div>
             </div>
