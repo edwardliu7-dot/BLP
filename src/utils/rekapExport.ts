@@ -159,12 +159,14 @@ export function downloadRekapPDF(user: UserProgress, monthDate: Date, blpPeriods
   doc.setFontSize(8);
   doc.text('MENGETAHUI', 10, footerY);
   doc.text('KEPALA SEKOLAH SMP', 10, footerY + 5);
-  doc.text('WAKASEK KURIKULUM SMP', 100, footerY + 5);
-  doc.text('GURU BIDANG STUDY', 200, footerY + 5);
+  doc.text('WAKASEK KURIKULUM SMP', 82, footerY + 5);
+  doc.text('WALI KELAS', 164, footerY + 5);
+  doc.text('TTD ORANGTUA', 228, footerY + 5);
 
-  doc.text('_____________________________', 10, footerY + 25);
-  doc.text('_____________________________', 100, footerY + 25);
-  doc.text('_____________________________', 200, footerY + 25);
+  doc.text('_____________________', 10, footerY + 25);
+  doc.text('_____________________', 82, footerY + 25);
+  doc.text('_____________________', 164, footerY + 25);
+  doc.text('_____________________', 228, footerY + 25);
 
   doc.save(`Rekap_BLP_${user.name}_${format(monthDate, 'MMMM_yyyy', { locale: localeId })}.pdf`);
 }
@@ -342,11 +344,13 @@ export async function downloadRekapExcel(user: UserProgress, monthDate: Date, bl
   r += 1;
   mergeAndSet(r, 2, r, 10, 'KEPALA SEKOLAH SMP', { align: 'left' });
   mergeAndSet(r, 13, r, 20, 'WAKASEK KURIKULUM SMP', { align: 'left' });
-  mergeAndSet(r, 24, r, TOTAL_COLS - 6, 'GURU BIDANG STUDY', { align: 'left' });
+  mergeAndSet(r, 24, r, TOTAL_COLS - 9, 'WALI KELAS', { align: 'left' });
+  mergeAndSet(r, TOTAL_COLS - 7, r, TOTAL_COLS, 'TTD ORANGTUA', { align: 'left' });
   r += 4;
   mergeAndSet(r, 2, r, 10, '_____________________________', { align: 'left' });
   mergeAndSet(r, 13, r, 20, '_____________________________', { align: 'left' });
-  mergeAndSet(r, 24, r, TOTAL_COLS - 6, '_____________________________', { align: 'left' });
+  mergeAndSet(r, 24, r, TOTAL_COLS - 9, '_____________________________', { align: 'left' });
+  mergeAndSet(r, TOTAL_COLS - 7, r, TOTAL_COLS, '_____________________________', { align: 'left' });
 
   ws.getRow(headerRow1).height = 18;
   ws.getRow(headerRow2).height = 16;
