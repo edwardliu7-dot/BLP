@@ -369,8 +369,8 @@ export default function SiswaDashboard({
               </div>
             </section>
 
-            {/* ── Haid section: only for female students ── */}
-            {isPerempuan && (
+            {/* ── Haid section: female students + unknown gender ── */}
+            {user.jenisKelamin !== 'L' && (
               <section className="app-card p-5 sm:p-6 space-y-4 transition-colors">
                 <div className="flex items-center gap-3 mb-1">
                   <div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-lg">

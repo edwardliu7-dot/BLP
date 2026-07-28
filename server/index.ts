@@ -621,7 +621,7 @@ app.post('/api/students/:id/haid', requireAuth('siswa', 'id'), async (req, res) 
     if (studentRes.rowCount === 0) {
       return res.status(404).json({ error: 'Siswa tidak ditemukan' });
     }
-    if (studentRes.rows[0].jenis_kelamin !== 'P') {
+    if (studentRes.rows[0].jenis_kelamin === 'L') {
       return res.status(400).json({ error: 'Fitur ini hanya tersedia untuk siswa perempuan' });
     }
 
