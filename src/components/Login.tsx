@@ -6,8 +6,15 @@ import {
 } from 'lucide-react';
 import { AuthState } from '../types';
 
+import type { UserProgress, BlpPeriod } from '../types';
+
+interface SiswaLoginData {
+  student: UserProgress;
+  blpPeriods: Record<string, BlpPeriod>;
+}
+
 interface LoginProps {
-  onLogin: (auth: AuthState) => Promise<void>;
+  onLogin: (auth: AuthState, siswaData?: SiswaLoginData) => Promise<void>;
 }
 
 function GeometricPattern() {
@@ -50,8 +57,13 @@ export default function Login({ onLogin }: LoginProps) {
           body: JSON.stringify({ username, password }),
         });
         if (!res.ok) { setErrorMsg(await parseErrorMessage(res, 'Username atau password salah. Silakan hubungi wali kelas Anda.')); return; }
-        const student = await res.json();
-        await onLogin({ role: 'siswa', userId: student.id, name: student.name, kelas: student.kelas });
+        const data = await res.json();
+        // Pass full profile data so App.tsx can show the dashboard immediately
+        // without an extra round-trip for /api/me/dashboard-data.
+        await onLogin(
+          { role: 'siswa', userId: data.id, name: data.name, kelas: data.kelas },
+          { student: data.student, blpPeriods: data.blpPeriods }
+        );
       } else {
         const res = await fetch('/api/login/guru', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },

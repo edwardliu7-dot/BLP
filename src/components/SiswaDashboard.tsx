@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { 
   CheckCircle2, 
@@ -125,22 +125,119 @@ export default function SiswaDashboard({
   const [haidLoading, setHaidLoading] = useState(false);
   const [haidError, setHaidError] = useState<string | null>(null);
 
+  // ── Lazy-loading state ──────────────────────────────────────────────────────
+  // localRecords: full DailyRecord objects for dates the user has opened.
+  //   Starts empty — today's record is fetched on mount, past records only
+  //   when the user taps that date in the calendar.
+  const [localRecords, setLocalRecords] = useState<Record<string, DailyRecord>>({});
+
+  // calendarDates: set of date strings (YYYY-MM-DD) that have ≥1 activity checked.
+  //   Used only for calendar dot rendering — no activity details needed here.
+  const [calendarDates, setCalendarDates] = useState<Set<string>>(new Set());
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [loadedMonths, setLoadedMonths] = useState<Set<string>>(new Set());
+
+  // todayLoading: true while today's BLP record is being fetched on mount.
+  const [todayLoading, setTodayLoading] = useState(true);
+  // dateLoading: true while a past date's full record is being fetched on tap.
+  const [dateLoading, setDateLoading] = useState(false);
+  // ────────────────────────────────────────────────────────────────────────────
+
   const activeHaid: HaidPeriod | undefined = (user.haidPeriods || []).find(p => p.endDate === null);
   const isPerempuan = user.jenisKelamin === 'P';
 
-  const records = user.records;
   const dateKey = format(selectedDate, 'yyyy-MM-dd');
   const todayKey = format(startOfDay(new Date()), 'yyyy-MM-dd');
   const isEditableDay = dateKey === todayKey;
-  const currentRecord = records[dateKey] || { date: dateKey, completedActivities: [] };
   const [activeModalActivityId, setActiveModalActivityId] = useState<string | null>(null);
+
+  // currentRecord: uses localRecords for any date that has been loaded.
+  // Starts empty for past dates until the user taps the date.
+  const currentRecord: DailyRecord = useMemo(() => {
+    return localRecords[dateKey] ?? { date: dateKey, completedActivities: [] };
+  }, [dateKey, localRecords]);
+
+  // Internal update handler — keeps localRecords + calendarDates in sync
+  // before propagating to parent (which handles the server PUT).
+  const handleUpdateRecord = useCallback((dk: string, updated: DailyRecord) => {
+    setLocalRecords(prev => ({ ...prev, [dk]: updated }));
+    setCalendarDates(prev => {
+      const next = new Set(prev);
+      if (updated.completedActivities.length > 0) next.add(dk);
+      else next.delete(dk);
+      return next;
+    });
+    onUpdateRecord(dk, updated);
+  }, [onUpdateRecord]);
+
+  // Fetch today's full record on mount (once — keeps login instant, loads data
+  // only when the student actually opens the app).
+  useEffect(() => {
+    const today = format(startOfDay(new Date()), 'yyyy-MM-dd');
+    setTodayLoading(true);
+    fetch(`/api/me/record/${today}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((rec: DailyRecord | null) => {
+        if (rec) {
+          setLocalRecords(prev => ({ ...prev, [today]: rec }));
+          if (rec.completedActivities.length > 0) {
+            setCalendarDates(prev => new Set([...prev, today]));
+          }
+        }
+      })
+      .catch(() => { /* non-critical */ })
+      .finally(() => setTodayLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load the full record for a past date on demand.
+  // Skips the fetch if the record is already in localRecords.
+  const loadDateRecord = useCallback(async (dateStr: string) => {
+    if (localRecords[dateStr] !== undefined) return; // already loaded
+    setDateLoading(true);
+    try {
+      const res = await fetch(`/api/me/record/${dateStr}`);
+      if (!res.ok) return;
+      const rec: DailyRecord = await res.json();
+      setLocalRecords(prev => ({ ...prev, [dateStr]: rec }));
+      if (rec.completedActivities.length > 0) {
+        setCalendarDates(prev => new Set([...prev, dateStr]));
+      }
+    } catch { /* non-critical */ }
+    finally { setDateLoading(false); }
+  }, [localRecords]);
+
+  // Fetch one month's calendar presence data (which dates have ≥1 activity).
+  const loadCalendarMonth = useCallback(async (year: number, month: number) => {
+    const key = `${year}-${String(month).padStart(2, '0')}`;
+    if (loadedMonths.has(key)) return;
+    setCalendarLoading(true);
+    try {
+      const res = await fetch(`/api/me/calendar/${year}/${month}`);
+      if (!res.ok) return;
+      const { dates }: { dates: string[] } = await res.json();
+      setCalendarDates(prev => {
+        const next = new Set(prev);
+        for (const d of dates) next.add(d);
+        return next;
+      });
+      setLoadedMonths(prev => new Set([...prev, key]));
+    } catch { /* non-critical — dots just won't show */ }
+    finally { setCalendarLoading(false); }
+  }, [loadedMonths]);
+
+  // Auto-fetch calendar presence data when switching to monthly view or navigating months.
+  useEffect(() => {
+    if (view === 'monthly') {
+      loadCalendarMonth(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
+    }
+  }, [view, selectedDate.getFullYear(), selectedDate.getMonth()]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const applySubmissionCompletion = (activityId: string, submission: ActivitySubmission) => {
     const updatedCompleted = currentRecord.completedActivities.includes(activityId)
       ? currentRecord.completedActivities
       : [...currentRecord.completedActivities, activityId];
 
-    onUpdateRecord(dateKey, {
+    handleUpdateRecord(dateKey, {
       ...currentRecord,
       completedActivities: updatedCompleted,
       submissions: {
@@ -175,7 +272,7 @@ export default function SiswaDashboard({
     const updatedSubmissions = { ...(currentRecord.submissions || {}) };
     if (isDone) delete updatedSubmissions[activityId];
 
-    onUpdateRecord(dateKey, {
+    handleUpdateRecord(dateKey, {
       ...currentRecord,
       completedActivities: updatedCompleted,
       submissions: updatedSubmissions,
@@ -206,31 +303,39 @@ export default function SiswaDashboard({
   const monthEnd = endOfMonth(selectedDate);
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
+  // Helper: get completedActivities for any date from localRecords (loaded on demand).
+  const getCompletedForDate = useCallback((dk: string): string[] => {
+    return localRecords[dk]?.completedActivities ?? [];
+  }, [localRecords]);
+
+  // Monthly stats: count days that have any record (from calendarDates or localRecords).
+  // This works without full activity details — just presence per day.
   const monthlyStats = useMemo(() => {
-    let totalPossible = 0;
-    let totalDone = 0;
+    let totalDays = 0;
+    let filledDays = 0;
 
     daysInMonth.forEach(day => {
       if (!isDateCountedForRecap(day, user.kelas, blpPeriods)) return;
-      totalPossible += getEffectiveTotalActivities(day);
+      totalDays++;
       const key = format(day, 'yyyy-MM-dd');
-      if (records[key]) {
-        totalDone += getEffectiveCompletedCount(day, records[key].completedActivities);
-      }
+      const hasRecord = calendarDates.has(key) || (localRecords[key]?.completedActivities?.length ?? 0) > 0;
+      if (hasRecord) filledDays++;
     });
 
     return {
-      totalDone,
-      totalPossible,
-      rate: totalPossible > 0 ? (totalDone / totalPossible) * 100 : 0
+      filledDays,
+      totalDays,
+      rate: totalDays > 0 ? (filledDays / totalDays) * 100 : 0
     };
-  }, [daysInMonth, records, user.kelas, blpPeriods]);
+  }, [daysInMonth, calendarDates, localRecords, user.kelas, blpPeriods]);
 
   const exportData = () => {
+    // Export only records that have been loaded (today + any tapped past dates).
     const data = {
       name: user.name,
-      records: records,
-      exportedAt: new Date().toISOString()
+      records: localRecords,
+      exportedAt: new Date().toISOString(),
+      note: 'Data mencakup hari ini dan tanggal-tanggal yang telah dibuka.',
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -458,6 +563,62 @@ export default function SiswaDashboard({
           </div>
         ) : view === 'daily' ? (
           <>
+            {/* ── Loading skeleton — shown while today's or a past date's record is being fetched ── */}
+            {(todayLoading || dateLoading) && (
+              <div className="space-y-4 animate-in fade-in duration-300">
+                {/* Hero card skeleton */}
+                <div className="bg-gradient-to-r from-emerald-700/80 via-emerald-600/80 to-teal-600/80 rounded-2xl p-5 sm:p-6 shadow-lg flex flex-col sm:flex-row items-center gap-5 sm:justify-between">
+                  <div className="flex-1 space-y-3 w-full">
+                    <div className="h-3 w-40 bg-white/20 rounded-full animate-pulse" />
+                    <div className="h-10 w-20 bg-white/25 rounded-xl animate-pulse" />
+                    <div className="h-3 w-32 bg-white/15 rounded-full animate-pulse" />
+                    <div className="flex gap-1 mt-2">
+                      {[1,2,3,4,5].map(i => <div key={i} className="w-4 h-4 bg-white/20 rounded-full animate-pulse" />)}
+                    </div>
+                    <div className="h-2 w-full max-w-xs bg-white/15 rounded-full animate-pulse" />
+                  </div>
+                  <div className="w-24 h-24 bg-white/15 rounded-full animate-pulse shrink-0" />
+                </div>
+                {/* Activity skeleton rows */}
+                {[1, 2, 3].map(section => (
+                  <div key={section} className="app-card overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-5 bg-slate-200 dark:bg-slate-700 rounded-full animate-pulse" />
+                        <div className="h-3 w-28 bg-slate-200 dark:bg-slate-700 rounded-full animate-pulse" />
+                      </div>
+                      <div className="h-3 w-10 bg-slate-200 dark:bg-slate-700 rounded-full animate-pulse" />
+                    </div>
+                    <div className="p-3 grid gap-2">
+                      {[1, 2, 3].map(row => (
+                        <div key={row} className="flex items-center gap-3 p-3.5 rounded-xl border-2 border-slate-100 dark:border-slate-800">
+                          <div className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse shrink-0" />
+                          <div className="flex-1 space-y-1.5">
+                            <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded-full animate-pulse" style={{ width: `${55 + row * 15}%` }} />
+                            <div className="h-2 w-24 bg-slate-100 dark:bg-slate-800 rounded-full animate-pulse" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {/* Subtle label */}
+                <div className="flex items-center justify-center gap-2 py-2">
+                  <div className="relative w-4 h-4">
+                    <svg viewBox="0 0 16 16" className="w-4 h-4 animate-spin text-emerald-500" style={{ animationDuration: '1s' }}>
+                      <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="2" />
+                      <path d="M 8 2 A 6 6 0 0 1 14 8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+                    {dateLoading ? 'Memuat data tanggal ini…' : 'Memuat BLP hari ini…'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* ── Actual daily content — hidden while loading ── */}
+            {!(todayLoading || dateLoading) && <>
             {/* ── Hero Score Card ── */}
             <div className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-600 rounded-2xl p-5 sm:p-6 text-white shadow-lg shadow-emerald-900/15 flex flex-col sm:flex-row items-center gap-5 sm:justify-between">
               <div className="flex-1">
@@ -603,17 +764,24 @@ export default function SiswaDashboard({
                 );
               })}
             </div>
+            </>}
           </>
         ) : (
           <div className="space-y-6 animate-in fade-in duration-500">
              <div className="bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-600 text-white rounded-2xl p-6 shadow-lg shadow-emerald-900/10 transition-colors">
-              <h3 className="text-sm font-medium text-emerald-100 dark:text-emerald-200 mb-1">Total Capaian Bulan Ini</h3>
+              <h3 className="text-sm font-medium text-emerald-100 dark:text-emerald-200 mb-1">Hari Terisi Bulan Ini</h3>
               <div className="flex items-end gap-2">
                 <span className="text-4xl font-bold">{Math.round(monthlyStats.rate)}%</span>
                 <span className="text-emerald-200 dark:text-emerald-300 mb-1 text-sm">
-                  ({monthlyStats.totalDone} / {monthlyStats.totalPossible} amaliyah)
+                  ({monthlyStats.filledDays} / {monthlyStats.totalDays} hari)
                 </span>
               </div>
+              {calendarLoading && (
+                <p className="text-[11px] text-emerald-200/70 mt-2 flex items-center gap-1.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                  Memuat data kalender…
+                </p>
+              )}
             </div>
 
              <div className="app-card p-4 transition-colors">
@@ -637,7 +805,8 @@ export default function SiswaDashboard({
               </div>
             </div>
 
-             <div className="app-card p-4 transition-colors">
+             {/* Calendar grid — dots indicate filled days (lazy-loaded per month) */}
+             <div className="app-card p-4 transition-colors relative overflow-hidden">
               <div className="grid grid-cols-7 gap-1 mb-2">
                 {['M', 'S', 'S', 'R', 'K', 'J', 'S'].map((d, i) => (
                   <div key={i} className="text-center text-[10px] font-bold text-slate-400 dark:text-slate-500 py-1">
@@ -652,69 +821,58 @@ export default function SiswaDashboard({
                 
                 {daysInMonth.map((day) => {
                   const key = format(day, 'yyyy-MM-dd');
-                  const dayRecord = records[key];
-                  const dayEffectiveTotal = getEffectiveTotalActivities(day);
-                  const dayRate = dayRecord ? (getEffectiveCompletedCount(day, dayRecord.completedActivities) / dayEffectiveTotal) : 0;
+                  // Dot shows if this date has any filled activity (presence check only)
+                  const hasFilled = calendarDates.has(key) || (localRecords[key]?.completedActivities?.length ?? 0) > 0;
                   
                   return (
                     <button
                       key={key}
-                      onClick={() => {
+                      onClick={async () => {
+                        const today = format(startOfDay(new Date()), 'yyyy-MM-dd');
+                        if (key !== today) {
+                          await loadDateRecord(key);
+                        }
                         setSelectedDate(day);
                         setView('daily');
                       }}
                       className={cn(
-                        "aspect-square rounded-xl flex items-center justify-center text-sm font-medium relative transition-all",
+                        "aspect-square rounded-xl flex items-center justify-center text-sm font-medium relative transition-all active:scale-95",
                         isSameDay(day, selectedDate) && "ring-2 ring-emerald-500 ring-offset-2",
-                        isToday(day) ? "bg-slate-100 dark:bg-slate-800 text-emerald-600 dark:text-emerald-400" : "text-slate-600 dark:text-slate-400"
+                        isToday(day)
+                          ? "bg-slate-100 dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 font-bold"
+                          : "text-slate-600 dark:text-slate-400"
                       )}
                     >
                       {format(day, 'd')}
-                      {dayRate > 0 && (
-                        <div 
-                          className="absolute bottom-1.5 w-1 h-1 rounded-full bg-emerald-500" 
-                          style={{ transform: `scale(${1 + dayRate})` }}
-                        />
+                      {hasFilled && (
+                        <div className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-emerald-500" />
                       )}
                     </button>
                   );
                 })}
               </div>
+
+              {/* Loading overlay — shown while calendar month is being fetched */}
+              {calendarLoading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-white/75 dark:bg-slate-950/75 backdrop-blur-[2px] rounded-xl z-10">
+                  <div className="relative w-9 h-9">
+                    <svg viewBox="0 0 36 36" className="w-9 h-9 animate-spin" style={{ animationDuration: '0.9s' }}>
+                      <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeOpacity="0.15" strokeWidth="3" className="text-emerald-600" />
+                      <path d="M 18 4 A 14 14 0 0 1 32 18" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="text-emerald-500" />
+                    </svg>
+                  </div>
+                  <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 tracking-wide">Memuat kalender…</p>
+                </div>
+              )}
             </div>
 
-             <div className="app-card p-5 sm:p-6 transition-colors">
-              <h4 className="font-bold mb-4 text-slate-700 dark:text-slate-200">Analisis Capaian</h4>
-              <div className="space-y-4">
-                {BLP_CATEGORIES.map(category => {
-                   const cat = CATEGORY_CONFIG[category.id] ?? DEFAULT_CAT;
-                   let catTotal = 0;
-                   let catPossible = daysInMonth.length * category.activities.length;
-                   daysInMonth.forEach(day => {
-                     const key = format(day, 'yyyy-MM-dd');
-                     const rec = records[key];
-                     if (rec) {
-                       catTotal += rec.completedActivities.filter(id => category.activities.some(a => a.id === id)).length;
-                     }
-                   });
-                   const catRate = catPossible > 0 ? (catTotal / catPossible) * 100 : 0;
-                   
-                   return (
-                     <div key={category.id}>
-                        <div className="flex justify-between text-xs mb-1.5 font-medium">
-                          <span className={cn("font-semibold", cat.label)}>{category.label}</span>
-                          <span className="text-slate-700 dark:text-slate-200">{Math.round(catRate)}%</span>
-                        </div>
-                        <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                          <div 
-                            className={cn("h-full rounded-full transition-all", cat.bar)}
-                            style={{ width: `${catRate}%` }}
-                          />
-                        </div>
-                     </div>
-                   );
-                })}
-              </div>
-            </div>
+             {/* Hint to tap a date */}
+             <div className="flex items-center gap-2 px-1">
+               <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+               <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                 Titik hijau = BLP sudah diisi · Ketuk tanggal untuk lihat detail
+               </p>
+             </div>
           </div>
         )}
       </main>

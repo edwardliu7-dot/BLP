@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { AuthState, SystemData, DailyRecord, UserProgress, GuruProfile, QuranBookmark, HaidPeriod } from './types';
+import { AuthState, SystemData, DailyRecord, UserProgress, GuruProfile, QuranBookmark, HaidPeriod, BlpPeriod } from './types';
 import Login from './components/Login';
 import LoadingScreen from './components/LoadingScreen';
 
@@ -19,8 +19,9 @@ export default function App() {
   const [auth, setAuth] = useState<AuthState>({ role: null });
   const [remindersEnabled, setRemindersEnabled] = useState(false);
 
-  // Fetch data scoped to the currently logged-in user (via session cookie).
-  const fetchDashboardData = useCallback(async (): Promise<SystemData> => {
+  // Fetch dashboard data for guru (loads all their class's students + records).
+  // Siswa no longer calls this — profile is returned by login, records are lazy.
+  const fetchGuruDashboardData = useCallback(async (): Promise<SystemData> => {
     const res = await fetch('/api/me/dashboard-data');
     if (!res.ok) throw Object.assign(new Error('fetch failed'), { status: res.status });
     return res.json();
@@ -42,13 +43,28 @@ export default function App() {
       return;
     }
 
-    // Stored session found — validate it by fetching scoped dashboard data.
+    // Stored session found — validate and restore.
     (async () => {
       try {
         const parsed: AuthState = JSON.parse(storedAuth);
-        const data = await fetchDashboardData();
-        setSystemData(data);
-        setAuth(parsed);
+        if (parsed.role === 'siswa') {
+          // For siswa: /api/auth/me returns full profile + blpPeriods (no records).
+          // Records are loaded lazily by the dashboard — keeps restore instant.
+          const res = await fetch('/api/auth/me');
+          if (!res.ok) throw new Error('session invalid');
+          const data = await res.json();
+          setSystemData({
+            students: { [data.userId]: data.student },
+            gurus: {},
+            blpPeriods: data.blpPeriods,
+          });
+          setAuth(parsed);
+        } else {
+          // Guru: fetch full class data as before.
+          const data = await fetchGuruDashboardData();
+          setSystemData(data);
+          setAuth(parsed);
+        }
         setStatus('ready');
       } catch {
         // Session expired or invalid — clear and show login.
@@ -56,17 +72,30 @@ export default function App() {
         setStatus('login');
       }
     })();
-  }, [fetchDashboardData]);
+  }, [fetchGuruDashboardData]);
 
   // Called by Login after the login API succeeds.
-  // Returns a Promise so Login can keep its spinner running until data is ready.
-  const handleLogin = useCallback(async (newAuth: AuthState) => {
-    const data = await fetchDashboardData();
-    setSystemData(data);
+  // Siswa: profile data comes from the login response — no extra round-trip.
+  // Guru: still fetches full class data via dashboard-data.
+  const handleLogin = useCallback(async (
+    newAuth: AuthState,
+    siswaData?: { student: UserProgress; blpPeriods: Record<string, BlpPeriod> }
+  ) => {
+    if (newAuth.role === 'siswa' && siswaData) {
+      // Use profile data returned by the login endpoint directly — instant.
+      setSystemData({
+        students: { [newAuth.userId!]: siswaData.student },
+        gurus: {},
+        blpPeriods: siswaData.blpPeriods,
+      });
+    } else if (newAuth.role === 'guru') {
+      const data = await fetchGuruDashboardData();
+      setSystemData(data);
+    }
     setAuth(newAuth);
     localStorage.setItem(AUTH_KEY, JSON.stringify(newAuth));
     setStatus('ready');
-  }, [fetchDashboardData]);
+  }, [fetchGuruDashboardData]);
 
   const handleLogout = () => {
     setAuth({ role: null });

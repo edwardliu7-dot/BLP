@@ -205,31 +205,75 @@ async function loadBlpPeriods(): Promise<SystemData['blpPeriods']> {
   return periods;
 }
 
+// Build a student profile response (no records) used by login and session restore.
+// Records are loaded lazily by the dashboard on demand.
+async function buildSiswaProfileResponse(userId: string): Promise<{
+  student: UserProgress;
+  blpPeriods: SystemData['blpPeriods'];
+} | null> {
+  const [profileRes, haidRes, periodsRes] = await Promise.all([
+    pool.query(
+      'SELECT id, username, name, kelas, email, whatsapp, photo_url, bio, quran_bookmark, jenis_kelamin FROM students WHERE id = $1',
+      [userId]
+    ),
+    pool.query(
+      'SELECT id, start_date, end_date FROM haid_periods WHERE student_id = $1 ORDER BY start_date DESC',
+      [userId]
+    ),
+    pool.query('SELECT kelas, year, month, start_day, end_day FROM blp_periods'),
+  ]);
+
+  if ((profileRes.rowCount ?? 0) === 0) return null;
+  const row = profileRes.rows[0];
+  const kelas = normalizeKelas(row.kelas);
+
+  const haidPeriods: HaidPeriod[] = haidRes.rows.map(r => ({
+    id: r.id,
+    startDate: r.start_date.toISOString().slice(0, 10),
+    endDate: r.end_date ? r.end_date.toISOString().slice(0, 10) : null,
+  }));
+
+  const blpPeriods: SystemData['blpPeriods'] = {};
+  for (const period of periodsRes.rows) {
+    if (normalizeKelas(period.kelas) !== kelas) continue;
+    blpPeriods[blpPeriodKey(kelas, period.year, period.month)] = {
+      startDay: period.start_day,
+      endDay: period.end_day,
+    };
+  }
+
+  const student: UserProgress = {
+    id: row.id,
+    username: row.username,
+    name: row.name,
+    kelas,
+    email: row.email,
+    whatsapp: row.whatsapp,
+    photoUrl: row.photo_url,
+    bio: row.bio,
+    quranBookmark: row.quran_bookmark || null,
+    jenisKelamin: row.jenis_kelamin || null,
+    haidPeriods,
+    records: {}, // No records on login/restore — loaded lazily by the dashboard
+  };
+
+  return { student, blpPeriods };
+}
+
 // GET dashboard data scoped to the logged-in user's role.
-// Siswa: only their own record + blpPeriods for their class.
+// Siswa: NOT called on login anymore — profile + blpPeriods are returned by the
+//   login endpoint directly, and records are lazy-loaded by the dashboard.
 // Guru: only students in their wali kelas + blpPeriods for that class.
-// Much faster than /api/system-data — avoids full-table scans on initial load.
 app.get('/api/me/dashboard-data', async (req, res) => {
   if (!req.session.userId || !req.session.role) {
     return res.status(401).json({ error: 'Anda harus login untuk melakukan ini' });
   }
   try {
     if (req.session.role === 'siswa') {
-      const student = await loadStudent(req.session.userId);
-      if (!student) return res.status(404).json({ error: 'Siswa tidak ditemukan' });
-
-      const periodsRes = await pool.query(
-        'SELECT kelas, year, month, start_day, end_day FROM blp_periods WHERE kelas = $1',
-        [student.kelas]
-      );
-      const blpPeriods: SystemData['blpPeriods'] = {};
-      for (const row of periodsRes.rows) {
-        blpPeriods[blpPeriodKey(normalizeKelas(row.kelas), row.year, row.month)] = {
-          startDay: row.start_day,
-          endDay: row.end_day,
-        };
-      }
-      return res.json({ students: { [student.id]: student }, gurus: {}, blpPeriods });
+      // Siswa should not call this endpoint anymore — kept for backward compat only.
+      const profile = await buildSiswaProfileResponse(req.session.userId);
+      if (!profile) return res.status(404).json({ error: 'Siswa tidak ditemukan' });
+      return res.json({ students: { [profile.student.id]: profile.student }, gurus: {}, blpPeriods: profile.blpPeriods });
     }
 
     // Guru — load only the wali's own class
@@ -238,20 +282,32 @@ app.get('/api/me/dashboard-data', async (req, res) => {
 
     const kelasWali = guru.kelasWali[0];
 
-    // Phase 1: Fetch students WITHOUT photo_url (base64 photos can be several MB each
-    // and are the main cause of slow / timed-out loads on mobile).
-    // Filter by normalised kelas in JS to handle DB spelling variants consistently.
-    const studentRes = await pool.query(
-      'SELECT id, username, name, kelas, email, whatsapp, bio, quran_bookmark, jenis_kelamin FROM students'
-    );
+    // Phase 1a: Resolve all DB kelas spellings that normalise to kelasWali.
+    // The students table is written by an external app and may have spelling
+    // variants (e.g. "Batutah" vs "Batuttah"). We cannot express our JS
+    // normalisation in SQL, so we first fetch the small set of distinct kelas
+    // values, find the ones that match, then use WHERE kelas = ANY($1) in the
+    // heavy query — avoiding a full-table scan on students.
+    const distinctKelasRes = await pool.query('SELECT DISTINCT kelas FROM students');
+    const matchingKelasValues: string[] = distinctKelasRes.rows
+      .map((r: { kelas: string }) => r.kelas)
+      .filter((k: string) => normalizeKelas(k) === kelasWali);
+
+    // Phase 1b: Fetch only this class's students WITHOUT photo_url (base64
+    // photos can be several MB each and are the main cause of slow / timed-out
+    // loads on mobile).
+    const studentRes = matchingKelasValues.length > 0
+      ? await pool.query(
+          'SELECT id, username, name, kelas, email, whatsapp, bio, quran_bookmark, jenis_kelamin FROM students WHERE kelas = ANY($1)',
+          [matchingKelasValues]
+        )
+      : { rows: [] as any[] };
 
     const classStudentIds: string[] = [];
     const classStudentRows: typeof studentRes.rows = [];
     for (const row of studentRes.rows) {
-      if (normalizeKelas(row.kelas) === kelasWali) {
-        classStudentIds.push(row.id);
-        classStudentRows.push(row);
-      }
+      classStudentIds.push(row.id);
+      classStudentRows.push(row);
     }
 
     // Phase 2: Fetch only records/haid for this class's students, plus blp_periods.
@@ -450,18 +506,25 @@ app.post('/api/login/siswa', async (req, res) => {
   try {
     const { username, password } = req.body || {};
     const id = toId(String(username || ''));
-    const passRes = await pool.query('SELECT password FROM students WHERE id = $1', [id]);
-    if (passRes.rowCount === 0) {
+    // Verify password first (cheap query), then fetch full profile.
+    const userRes = await pool.query(
+      'SELECT password FROM students WHERE id = $1',
+      [id]
+    );
+    if (userRes.rowCount === 0) {
       return res.status(404).json({ error: 'Username atau password salah. Jika Anda belum memiliki akun, silakan hubungi wali kelas Anda.' });
     }
-    const ok = await verifyPassword(String(password || ''), passRes.rows[0].password);
+    const ok = await verifyPassword(String(password || ''), userRes.rows[0].password);
     if (!ok) {
       return res.status(401).json({ error: 'Username atau password salah. Silakan hubungi wali kelas Anda jika Anda lupa akun.' });
     }
-    const student = await loadStudent(id);
     req.session.userId = id;
     req.session.role = 'siswa';
-    res.json(student);
+    // Return full profile + blpPeriods (no records) so the dashboard can
+    // render immediately without a second round-trip after login.
+    const profile = await buildSiswaProfileResponse(id);
+    if (!profile) return res.status(404).json({ error: 'Data siswa tidak ditemukan' });
+    res.json({ id, name: profile.student.name, kelas: profile.student.kelas, student: profile.student, blpPeriods: profile.blpPeriods });
   } catch (err) {
     console.error('Failed to login siswa', err);
     res.status(500).json({ error: 'Gagal login' });
@@ -473,31 +536,73 @@ app.post('/api/login/guru', async (req, res) => {
   try {
     const { username, password } = req.body || {};
     const id = toId(String(username || ''));
-    const passRes = await pool.query('SELECT password FROM gurus WHERE id = $1', [id]);
-    if (passRes.rowCount === 0) {
+    // Fetch password + wali kelas check fields in one query (was two round-trips).
+    const userRes = await pool.query(
+      'SELECT password, name, jabatan, wali_kelas_kelas FROM gurus WHERE id = $1',
+      [id]
+    );
+    if (userRes.rowCount === 0) {
       return res.status(404).json({ error: 'Username Anda belum terdaftar sebagai wali kelas. Silakan hubungi admin.' });
     }
-    const ok = await verifyPassword(String(password || ''), passRes.rows[0].password);
+    const ok = await verifyPassword(String(password || ''), userRes.rows[0].password);
     if (!ok) {
       return res.status(401).json({ error: 'Password salah!' });
     }
     // BLP is only for wali kelas (homeroom teachers) — a guru who only
     // teaches a subject (kelas_diampu, used by the "tomat" app) but is not
     // wali kelas for any class must not be able to log in here.
-    const guru = await loadGuru(id);
-    if (!guru) {
+    const row = userRes.rows[0];
+    if (!isWaliKelas(row)) {
       return res.status(403).json({ error: 'Hanya wali kelas yang dapat login di aplikasi BLP. Akun Anda bukan wali kelas.' });
     }
     req.session.userId = id;
     req.session.role = 'guru';
-    res.json(guru);
+    // Return only what the client uses; dashboard data loaded via /api/me/dashboard-data.
+    res.json({ id, name: row.name, kelasWali: [normalizeKelas(row.wali_kelas_kelas)] });
   } catch (err) {
     console.error('Failed to login guru', err);
     res.status(500).json({ error: 'Gagal login' });
   }
 });
 
-// Return the current session's user profile (used to refresh stale localStorage auth)
+// GET lightweight calendar presence check for the logged-in student.
+// Returns only { dates: string[] } — the dates that have at least 1 activity
+// checked. Keeps the calendar dot query as cheap as possible: one row per
+// filled day, no activity details, no submissions.
+app.get('/api/me/calendar/:year/:month', requireAuth('siswa'), async (req, res) => {
+  try {
+    const year = parseInt(req.params.year, 10);
+    const month = parseInt(req.params.month, 10);
+    if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+      return res.status(400).json({ error: 'Tahun/bulan tidak valid' });
+    }
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear  = month === 12 ? year + 1 : year;
+    const endDate   = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+
+    const result = await pool.query(
+      `SELECT record_date
+         FROM daily_records
+        WHERE student_id = $1
+          AND record_date >= $2
+          AND record_date < $3
+          AND array_length(completed_activities, 1) > 0
+        ORDER BY record_date`,
+      [req.session.userId!, startDate, endDate]
+    );
+
+    const dates = result.rows.map(r => (r.record_date as Date).toISOString().slice(0, 10));
+    return res.json({ dates });
+  } catch (err) {
+    console.error('Failed to load calendar data', err);
+    return res.status(500).json({ error: 'Gagal memuat kalender' });
+  }
+});
+
+// Return the current session's user profile (used to restore session on page load).
+// Siswa: returns full profile + blpPeriods (no records — loaded lazily by dashboard).
+// Guru: returns minimal auth info — full data comes from /api/me/dashboard-data.
 app.get('/api/auth/me', async (req, res) => {
   try {
     if (!req.session.userId || !req.session.role) {
@@ -508,13 +613,41 @@ app.get('/api/auth/me', async (req, res) => {
       if (!guru) return res.status(403).json({ error: 'Not a wali kelas' });
       return res.json({ role: 'guru', userId: guru.id, name: guru.name, kelasWali: guru.kelasWali });
     } else {
-      const student = await loadStudent(req.session.userId);
-      if (!student) return res.status(404).json({ error: 'Student not found' });
-      return res.json({ role: 'siswa', userId: student.id, name: student.name, kelas: student.kelas });
+      const profile = await buildSiswaProfileResponse(req.session.userId);
+      if (!profile) return res.status(404).json({ error: 'Student not found' });
+      return res.json({ role: 'siswa', userId: profile.student.id, name: profile.student.name, kelas: profile.student.kelas, student: profile.student, blpPeriods: profile.blpPeriods });
     }
   } catch (err) {
     console.error('Failed to fetch auth/me', err);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET a single day's full record for the logged-in student (on-demand when user taps a date).
+app.get('/api/me/record/:date', requireAuth('siswa'), async (req, res) => {
+  try {
+    const { date } = req.params;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Format tanggal tidak valid' });
+    }
+    const result = await pool.query(
+      'SELECT record_date, completed_activities, score, submissions FROM daily_records WHERE student_id = $1 AND record_date = $2',
+      [req.session.userId!, date]
+    );
+    if ((result.rowCount ?? 0) === 0) {
+      // No record yet — return an empty record (student hasn't filled BLP for this date)
+      return res.json({ date, completedActivities: [], score: null, submissions: {} });
+    }
+    const r = result.rows[0];
+    return res.json({
+      date,
+      completedActivities: r.completed_activities || [],
+      score: r.score ?? null,
+      submissions: r.submissions || {},
+    });
+  } catch (err) {
+    console.error('Failed to load record', err);
+    return res.status(500).json({ error: 'Gagal memuat data harian' });
   }
 });
 
@@ -901,21 +1034,46 @@ async function ensureSchema() {
       PRIMARY KEY (kelas, year, month)
     )
   `);
-  // Add jenis_kelamin column to students if not yet present (idempotent migration)
+  // Add jenis_kelamin column to students if not yet present (idempotent migration).
+  // students is owned by the external EOB5guru app — skip gracefully if not present.
   await pool.query(`
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS jenis_kelamin text
-      CHECK (jenis_kelamin IN ('L', 'P'))
+    DO $$ BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'students' AND table_schema = 'public') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'students' AND column_name = 'jenis_kelamin' AND table_schema = 'public') THEN
+          ALTER TABLE students ADD COLUMN jenis_kelamin text CHECK (jenis_kelamin IN ('L', 'P'));
+        END IF;
+      END IF;
+    END $$
   `);
-  // Haid period tracking for female students
+  // Haid period tracking for female students.
+  // Conditional: haid_periods references students(id) — skip if students doesn't exist yet.
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS haid_periods (
-      id serial PRIMARY KEY,
-      student_id text NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-      start_date date NOT NULL,
-      end_date date,
-      created_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now()
-    )
+    DO $$ BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'students' AND table_schema = 'public') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'haid_periods' AND table_schema = 'public') THEN
+          CREATE TABLE haid_periods (
+            id serial PRIMARY KEY,
+            student_id text NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+            start_date date NOT NULL,
+            end_date date,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now()
+          );
+        END IF;
+      END IF;
+    END $$
+  `);
+  // Performance indexes — only if the referenced tables exist (students is owned
+  // by the external EOB5guru app and may not be present in a fresh dev DB).
+  await pool.query(`
+    DO $$ BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'students' AND table_schema = 'public') THEN
+        EXECUTE 'CREATE INDEX IF NOT EXISTS idx_students_kelas ON students (kelas)';
+      END IF;
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'haid_periods' AND table_schema = 'public') THEN
+        EXECUTE 'CREATE INDEX IF NOT EXISTS idx_haid_periods_student_id ON haid_periods (student_id)';
+      END IF;
+    END $$
   `);
 }
 
