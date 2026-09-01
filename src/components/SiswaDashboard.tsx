@@ -308,7 +308,7 @@ export default function SiswaDashboard({
   };
 
   const totalActivities = getEffectiveTotalActivities(selectedDate);
-  const completedCount = getEffectiveCompletedCount(selectedDate, currentRecord.completedActivities);
+  const completedCount = getEffectiveCompletedCount(selectedDate, currentRecord.completedActivities, user.haidPeriods);
   const completionRate = totalActivities > 0 ? (completedCount / totalActivities) * 100 : 0;
 
   const monthStart = startOfMonth(selectedDate);
@@ -496,7 +496,7 @@ export default function SiswaDashboard({
                   <div>
                     <h3 className="font-bold">Status Haid</h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Selama haid, poin Shalat Berjamaah dan Al-Qur'an otomatis terhitung ✓
+                      Selama haid, poin salat dan membaca Al-Qur'an otomatis terhitung ✓
                     </p>
                   </div>
                 </div>

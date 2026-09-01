@@ -24,7 +24,14 @@ export const SATURDAY_ONLY_BLOCK_IDS = LEGACY_SATURDAY_ONLY_BLOCK_IDS;
 // During haid, these activities are automatically credited so female students
 // are not penalised for exemptions mandated by Islamic jurisprudence.
 export const LEGACY_HAID_AUTO_CREDIT_IDS = ['d1', 'd5'];
-export const CURRENT_HAID_AUTO_CREDIT_IDS = ['v20260901-d1', 'v20260901-rs4'];
+export const CURRENT_HAID_AUTO_CREDIT_IDS = [
+  // Five daily prayers in Kesadaran Diri
+  'v20260901-d1', 'v20260901-d2', 'v20260901-d3', 'v20260901-d4', 'v20260901-d5',
+  // Qiyamullail/Tahajudd, Witir, Ba'diah/Qobliyah, and Dhuha
+  'v20260901-r2', 'v20260901-r3', 'v20260901-r7', 'v20260901-r8',
+  // Quran reading keeps the existing exemption behaviour.
+  'v20260901-rs4',
+];
 export const HAID_AUTO_CREDIT_IDS = LEGACY_HAID_AUTO_CREDIT_IDS;
 
 export const ALL_ACTIVITY_IDS: string[] = BLP_CATEGORIES.flatMap(cat => cat.activities.map(a => a.id));

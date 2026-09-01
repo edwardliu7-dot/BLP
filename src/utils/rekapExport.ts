@@ -5,7 +5,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDaysInMonth } f
 import { id as localeId } from 'date-fns/locale';
 import { getBlpCategoriesForDate } from '../data/activities';
 import { UserProgress, BlpPeriod } from '../types';
-import { getSchoolOnlyActivityIds, isSchoolDay, isDateCountedForRecap } from './blpScoring';
+import { getHaidAutoCreditIds, getSchoolOnlyActivityIds, isHaidDay, isSchoolDay, isDateCountedForRecap } from './blpScoring';
 
 const TOTAL_DAY_COLS = 31;
 const BRAND_GREEN = 'FF107C57';
@@ -37,7 +37,8 @@ function buildRekapRows(user: UserProgress, monthDate: Date, blpPeriods?: Record
         if (!counted[i]) return false;
         const key = format(day, 'yyyy-MM-dd');
         const rec = user.records[key];
-        return !!rec && rec.completedActivities.includes(activity.id);
+        const autoCredited = isHaidDay(day, user.haidPeriods) && getHaidAutoCreditIds(day).includes(activity.id);
+        return (!!rec && rec.completedActivities.includes(activity.id)) || autoCredited;
       });
       const capaian = marks.filter(Boolean).length;
       const targetCount = counted.filter(Boolean).length;

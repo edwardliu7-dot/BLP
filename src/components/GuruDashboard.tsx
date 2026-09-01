@@ -223,7 +223,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
 
   const selectedStudent = selectedStudentId ? systemData.students[selectedStudentId] : null;
   const currentRecord = selectedStudent?.records[dateKey] || { date: dateKey, completedActivities: [] };
-  const autoScore = Math.round((getEffectiveCompletedCount(selectedDate, currentRecord.completedActivities) / totalActivities) * 100);
+  const autoScore = Math.round((getEffectiveCompletedCount(selectedDate, currentRecord.completedActivities, selectedStudent?.haidPeriods) / totalActivities) * 100);
 
   // Compute stats for today
   const todayStats = useMemo(() => {
@@ -234,7 +234,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
     let totalScore = 0;
     allStudents.forEach(s => {
       const r = s.records[dKey];
-      const count = r ? getEffectiveCompletedCount(d, r.completedActivities) : 0;
+      const count = r ? getEffectiveCompletedCount(d, r.completedActivities, selectedStudent?.haidPeriods) : 0;
       if (count > 0) filled++;
       totalScore += Math.round((count / dTotal) * 100);
     });
@@ -432,7 +432,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
               ) : (
                 students.map(s => {
                   const sTodayRecord = s.records[todayKey2];
-                  const sCount = sTodayRecord ? getEffectiveCompletedCount(today, sTodayRecord.completedActivities) : 0;
+                  const sCount = sTodayRecord ? getEffectiveCompletedCount(today, sTodayRecord.completedActivities, s.haidPeriods) : 0;
                   const autoStudentScore = Math.round((sCount / todayTotalAct) * 100);
                   const pct = Math.round((sCount / todayTotalAct) * 100);
                   const status = pct === 100 ? 'Selesai' : pct > 0 ? 'Proses' : 'Belum';
@@ -606,7 +606,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
                     const r = s.records[k];
                     if (r && r.completedActivities.length > 0) {
                       const dayTotal = getEffectiveTotalActivities(day);
-                      const dayDone = getEffectiveCompletedCount(day, r.completedActivities);
+                      const dayDone = getEffectiveCompletedCount(day, r.completedActivities, s.haidPeriods);
                       totalScore += Math.round((dayDone / dayTotal) * 100);
                       scoredDaysCount++;
                     }
