@@ -29,7 +29,7 @@ import { id as localeId } from 'date-fns/locale';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-import { BLP_CATEGORIES, PERLENGKAPAN_SEKOLAH_ITEMS } from '../data/activities';
+import { getBlpCategoriesForDate, PERLENGKAPAN_SEKOLAH_ITEMS } from '../data/activities';
 import { getSurah } from '../data/quran';
 import { DailyRecord, UserProgress, ActivitySubmission, QuranBookmark, BlpPeriod, HaidPeriod } from '../types';
 import TextSubmissionModal from './modals/TextSubmissionModal';
@@ -37,14 +37,25 @@ import ChecklistSubmissionModal from './modals/ChecklistSubmissionModal';
 import QuranReadingModal from './modals/QuranReadingModal';
 import ProfileModal from './modals/ProfileModal';
 import { downloadRekapPDF, downloadRekapExcel } from '../utils/rekapExport';
-import { SCHOOL_ONLY_ACTIVITY_IDS, isSchoolDay, getEffectiveTotalActivities, getEffectiveCompletedCount, isDateCountedForRecap } from '../utils/blpScoring';
+import { getSchoolOnlyActivityIds, isSchoolDay, getEffectiveTotalActivities, getEffectiveCompletedCount, isDateCountedForRecap } from '../utils/blpScoring';
 import PageLayout, { type NavItem } from './layout/PageLayout';
 
 const QURAN_ACTIVITY_ID = 'd5';
+const CURRENT_QURAN_ACTIVITY_ID = 'v20260901-rs4';
 const BELAJAR_ACTIVITY_ID = 'rs1';
+const CURRENT_BELAJAR_ACTIVITY_ID = 'v20260901-rs1';
 const EVALUASI_ACTIVITY_ID = 'rf3';
+const CURRENT_EVALUASI_ACTIVITY_ID = 'v20260901-rf5';
 const PERLENGKAPAN_ACTIVITY_ID = 'rp1';
 const RECIPROCITY_ACTIVITY_IDS = ['rp2', 'rp3', 'rp4'];
+const CURRENT_RECIPROCITY_ACTIVITY_IDS = [
+  'v20260901-rp1', 'v20260901-rp2', 'v20260901-rp3', 'v20260901-rp4',
+  'v20260901-rp5', 'v20260901-rp6', 'v20260901-rp7',
+];
+
+function isQuranActivity(activityId: string): boolean {
+  return activityId === QURAN_ACTIVITY_ID || activityId === CURRENT_QURAN_ACTIVITY_ID;
+}
 
 // Color config per BLP category — full class strings so Tailwind JIT picks them up
 const CATEGORY_CONFIG: Record<string, { bar: string; doneBg: string; doneBorder: string; hover: string; check: string; label: string }> = {
@@ -67,21 +78,21 @@ function getChecklistConfig(activityId: string): { title: string; items: typeof 
 }
 
 function getSubmissionConfig(activityId: string): { minChars?: number; placeholder: string; title: string } | null {
-  if (activityId === BELAJAR_ACTIVITY_ID) {
+  if (activityId === BELAJAR_ACTIVITY_ID || activityId === CURRENT_BELAJAR_ACTIVITY_ID) {
     return {
       minChars: 100,
       title: 'Rangkuman Belajar Hari Ini',
       placeholder: 'Tuliskan rangkuman materi yang kamu pelajari hari ini...',
     };
   }
-  if (activityId === EVALUASI_ACTIVITY_ID) {
+  if (activityId === EVALUASI_ACTIVITY_ID || activityId === CURRENT_EVALUASI_ACTIVITY_ID) {
     return {
       minChars: 100,
       title: 'Evaluasi Diri Sebelum Tidur',
       placeholder: 'Tuliskan evaluasi dirimu hari ini: apa yang sudah baik, apa yang perlu diperbaiki, dan permintaan maaf untuk diri sendiri maupun orang lain...',
     };
   }
-  if (RECIPROCITY_ACTIVITY_IDS.includes(activityId)) {
+  if (RECIPROCITY_ACTIVITY_IDS.includes(activityId) || CURRENT_RECIPROCITY_ACTIVITY_IDS.includes(activityId)) {
     return {
       title: 'Laporan Kegiatan',
       placeholder: 'Ceritakan kegiatan yang kamu lakukan sesuai poin ini...',
@@ -149,6 +160,7 @@ export default function SiswaDashboard({
   const dateKey = format(selectedDate, 'yyyy-MM-dd');
   const todayKey = format(startOfDay(new Date()), 'yyyy-MM-dd');
   const isEditableDay = dateKey === todayKey;
+  const categories = useMemo(() => getBlpCategoriesForDate(selectedDate), [selectedDate]);
   const [activeModalActivityId, setActiveModalActivityId] = useState<string | null>(null);
 
   // currentRecord: uses localRecords for any date that has been loaded.
@@ -253,14 +265,14 @@ export default function SiswaDashboard({
       alert('BLP hanya bisa diisi untuk hari ini. Tanggal yang sudah lewat atau belum tiba tidak dapat diubah.');
       return;
     }
-    if (SCHOOL_ONLY_ACTIVITY_IDS.includes(activityId) && !isSchoolDay(selectedDate)) {
+    if (getSchoolOnlyActivityIds(selectedDate).includes(activityId) && !isSchoolDay(selectedDate)) {
       alert('Kegiatan ini hanya berlaku pada hari sekolah (Senin-Jumat).');
       return;
     }
 
     const isDone = currentRecord.completedActivities.includes(activityId);
 
-    if (!isDone && (activityId === QURAN_ACTIVITY_ID || getChecklistConfig(activityId) || getSubmissionConfig(activityId))) {
+    if (!isDone && (isQuranActivity(activityId) || getChecklistConfig(activityId) || getSubmissionConfig(activityId))) {
       setActiveModalActivityId(activityId);
       return;
     }
@@ -672,7 +684,7 @@ export default function SiswaDashboard({
 
             {/* ── Category Sections ── */}
             <div className="space-y-4 pb-10">
-              {BLP_CATEGORIES.map((category) => {
+              {categories.map((category) => {
                 const cat = CATEGORY_CONFIG[category.id] ?? DEFAULT_CAT;
                 const catDone = category.activities.filter(a => currentRecord.completedActivities.includes(a.id)).length;
                 const catPct = Math.round((catDone / category.activities.length) * 100);
@@ -700,7 +712,7 @@ export default function SiswaDashboard({
                   <div className="p-3 grid gap-2">
                     {category.activities.map((activity) => {
                       const isDone = currentRecord.completedActivities.includes(activity.id);
-                      const isSchoolOnly = SCHOOL_ONLY_ACTIVITY_IDS.includes(activity.id) && !isSchoolDay(selectedDate);
+                      const isSchoolOnly = getSchoolOnlyActivityIds(selectedDate).includes(activity.id) && !isSchoolDay(selectedDate);
                       return (
                         <motion.button
                           key={activity.id}
@@ -727,7 +739,7 @@ export default function SiswaDashboard({
                               isDone ? "text-slate-800 dark:text-slate-100" : "text-slate-600 dark:text-slate-300"
                             )}>
                               {activity.name}
-                              {activity.id === QURAN_ACTIVITY_ID && <Mic size={12} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />}
+                              {isQuranActivity(activity.id) && <Mic size={12} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />}
                               {getChecklistConfig(activity.id) && <ListChecks size={12} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />}
                               {getSubmissionConfig(activity.id) && <PenLine size={12} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />}
                             </p>
@@ -739,7 +751,7 @@ export default function SiswaDashboard({
                                 Tidak berlaku di akhir pekan (bukan hari sekolah)
                               </p>
                             )}
-                            {activity.id === QURAN_ACTIVITY_ID && user.quranBookmark && (
+                            {isQuranActivity(activity.id) && user.quranBookmark && (
                               <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5 font-medium flex items-center gap-1">
                                 <Bookmark size={10} />
                                 Penanda: {user.quranBookmark.surahName}
@@ -877,13 +889,13 @@ export default function SiswaDashboard({
         )}
       </main>
 
-      {activeModalActivityId === QURAN_ACTIVITY_ID && (
+      {activeModalActivityId && isQuranActivity(activeModalActivityId) && (
         <QuranReadingModal
-          activityName={BLP_CATEGORIES.flatMap(c => c.activities).find(a => a.id === QURAN_ACTIVITY_ID)?.name || ''}
+          activityName={categories.flatMap(c => c.activities).find(a => a.id === activeModalActivityId)?.name || ''}
           bookmark={user.quranBookmark}
           onClose={() => setActiveModalActivityId(null)}
           onSubmit={(audioDataUrl, quranRef) => {
-            applySubmissionCompletion(QURAN_ACTIVITY_ID, {
+            applySubmissionCompletion(activeModalActivityId, {
               type: 'audio',
               content: audioDataUrl,
               quranRef,
@@ -919,10 +931,10 @@ export default function SiswaDashboard({
         />
       )}
 
-      {activeModalActivityId && activeModalActivityId !== QURAN_ACTIVITY_ID && getChecklistConfig(activeModalActivityId) && (
+      {activeModalActivityId && !isQuranActivity(activeModalActivityId) && getChecklistConfig(activeModalActivityId) && (
         <ChecklistSubmissionModal
           title={getChecklistConfig(activeModalActivityId)!.title}
-          activityName={BLP_CATEGORIES.flatMap(c => c.activities).find(a => a.id === activeModalActivityId)?.name || ''}
+          activityName={categories.flatMap(c => c.activities).find(a => a.id === activeModalActivityId)?.name || ''}
           items={getChecklistConfig(activeModalActivityId)!.items}
           initialValues={currentRecord.submissions?.[activeModalActivityId]?.items}
           onClose={() => setActiveModalActivityId(null)}
@@ -936,10 +948,10 @@ export default function SiswaDashboard({
         />
       )}
 
-      {activeModalActivityId && activeModalActivityId !== QURAN_ACTIVITY_ID && getSubmissionConfig(activeModalActivityId) && (
+      {activeModalActivityId && !isQuranActivity(activeModalActivityId) && getSubmissionConfig(activeModalActivityId) && (
         <TextSubmissionModal
           title={getSubmissionConfig(activeModalActivityId)!.title}
-          activityName={BLP_CATEGORIES.flatMap(c => c.activities).find(a => a.id === activeModalActivityId)?.name || ''}
+          activityName={categories.flatMap(c => c.activities).find(a => a.id === activeModalActivityId)?.name || ''}
           placeholder={getSubmissionConfig(activeModalActivityId)!.placeholder}
           minChars={getSubmissionConfig(activeModalActivityId)!.minChars}
           initialValue={currentRecord.submissions?.[activeModalActivityId]?.content || ''}

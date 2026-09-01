@@ -15,3 +15,4 @@
 - [Student accounts owned by EOB5guru](student-accounts-external-owner.md) — BLP app must never create/register student or guru accounts itself; accounts are provisioned by the separate EOB5guru app into the shared DB.
 - [Loading performance architecture](loading-performance.md) — login returns full profile+blpPeriods (no records); today's record fetched lazily on dashboard mount; past dates fetched on tap; calendar is presence-only dots.
 - [Mockup sandbox dependency setup](mockup-sandbox-dependency-setup.md) — generated sandbox may inherit workspace dependencies; preview config must avoid unavailable optional plugins/packages.
+- [Versioned BLP checklist](versioned-blp-checklist.md) — checklist revisions use a date cutoff and distinct activity IDs so historical records remain immutable.

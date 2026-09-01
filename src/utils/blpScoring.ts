@@ -3,22 +3,32 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BLP_CATEGORIES } from '../data/activities';
+import { BLP_CATEGORIES, CURRENT_BLP_CATEGORIES, getBlpCategoriesForDate } from '../data/activities';
 import type { HaidPeriod } from '../types';
 
 // Points that only make sense on a school day *and* only blocked on both
 // Saturday AND Sunday (e.g. "datang ke sekolah tepat waktu").
-export const SCHOOL_ONLY_ACTIVITY_IDS = ['r1'];
+export const LEGACY_SCHOOL_ONLY_ACTIVITY_IDS = ['r1'];
+// The September 2026 checklist contains no school-only item.
+export const CURRENT_SCHOOL_ONLY_ACTIVITY_IDS: string[] = [];
+// Backwards-compatible export for older consumers; date-aware code should use
+// getSchoolOnlyActivityIds(date).
+export const SCHOOL_ONLY_ACTIVITY_IDS = LEGACY_SCHOOL_ONLY_ACTIVITY_IDS;
 
 // Points that are only blocked on Saturday (not Sunday): preparing school
 // equipment the night before makes sense on Sunday night for Monday school.
-export const SATURDAY_ONLY_BLOCK_IDS = ['rp1'];
+export const LEGACY_SATURDAY_ONLY_BLOCK_IDS = ['rp1'];
+export const CURRENT_SATURDAY_ONLY_BLOCK_IDS: string[] = [];
+export const SATURDAY_ONLY_BLOCK_IDS = LEGACY_SATURDAY_ONLY_BLOCK_IDS;
 
 // During haid, these activities are automatically credited so female students
 // are not penalised for exemptions mandated by Islamic jurisprudence.
-export const HAID_AUTO_CREDIT_IDS = ['d1', 'd5'];
+export const LEGACY_HAID_AUTO_CREDIT_IDS = ['d1', 'd5'];
+export const CURRENT_HAID_AUTO_CREDIT_IDS = ['v20260901-d1', 'v20260901-rs4'];
+export const HAID_AUTO_CREDIT_IDS = LEGACY_HAID_AUTO_CREDIT_IDS;
 
 export const ALL_ACTIVITY_IDS: string[] = BLP_CATEGORIES.flatMap(cat => cat.activities.map(a => a.id));
+export const CURRENT_ACTIVITY_IDS: string[] = CURRENT_BLP_CATEGORIES.flatMap(cat => cat.activities.map(a => a.id));
 
 // School days are Monday - Friday; Saturday/Sunday are non-school days.
 export function isSchoolDay(date: Date): boolean {
@@ -37,10 +47,31 @@ export function isSunday(date: Date): boolean {
 // Which activity ids actually apply/count for a given date.
 // • r1  — blocked on Saturday AND Sunday
 // • rp1 — blocked only on Saturday (allowed on Sunday: prepare tonight for Monday)
+export function getSchoolOnlyActivityIds(date: Date): string[] {
+  return dateToKey(date) >= '2026-09-01'
+    ? CURRENT_SCHOOL_ONLY_ACTIVITY_IDS
+    : LEGACY_SCHOOL_ONLY_ACTIVITY_IDS;
+}
+
+export function getSaturdayOnlyBlockIds(date: Date): string[] {
+  return dateToKey(date) >= '2026-09-01'
+    ? CURRENT_SATURDAY_ONLY_BLOCK_IDS
+    : LEGACY_SATURDAY_ONLY_BLOCK_IDS;
+}
+
+export function getHaidAutoCreditIds(date: Date): string[] {
+  return dateToKey(date) >= '2026-09-01'
+    ? CURRENT_HAID_AUTO_CREDIT_IDS
+    : LEGACY_HAID_AUTO_CREDIT_IDS;
+}
+
 export function getEffectiveActivityIds(date: Date): string[] {
-  return ALL_ACTIVITY_IDS.filter(id => {
-    if (SCHOOL_ONLY_ACTIVITY_IDS.includes(id) && !isSchoolDay(date)) return false;
-    if (SATURDAY_ONLY_BLOCK_IDS.includes(id) && isSaturday(date)) return false;
+  const activityIds = getBlpCategoriesForDate(date).flatMap(cat => cat.activities.map(a => a.id));
+  const schoolOnlyIds = getSchoolOnlyActivityIds(date);
+  const saturdayOnlyIds = getSaturdayOnlyBlockIds(date);
+  return activityIds.filter(id => {
+    if (schoolOnlyIds.includes(id) && !isSchoolDay(date)) return false;
+    if (saturdayOnlyIds.includes(id) && isSaturday(date)) return false;
     return true;
   });
 }
@@ -78,7 +109,7 @@ export function getEffectiveCompletedCount(
 
   // Auto-credit haid activities on qualifying days
   if (isHaidDay(date, haidPeriods)) {
-    for (const id of HAID_AUTO_CREDIT_IDS) {
+    for (const id of getHaidAutoCreditIds(date)) {
       if (effective.has(id)) completed.add(id);
     }
   }

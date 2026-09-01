@@ -3,9 +3,9 @@ import autoTable from 'jspdf-autotable';
 import ExcelJS from 'exceljs';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDaysInMonth } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
-import { BLP_CATEGORIES } from '../data/activities';
+import { getBlpCategoriesForDate } from '../data/activities';
 import { UserProgress, BlpPeriod } from '../types';
-import { SCHOOL_ONLY_ACTIVITY_IDS, isSchoolDay, isDateCountedForRecap } from './blpScoring';
+import { getSchoolOnlyActivityIds, isSchoolDay, isDateCountedForRecap } from './blpScoring';
 
 const TOTAL_DAY_COLS = 31;
 const BRAND_GREEN = 'FF107C57';
@@ -17,7 +17,7 @@ const GREY = 'FFF2F2F2';
 // ke sekolah tepat waktu" — only if it's also a school day (Mon-Fri).
 function isDayCountedForActivity(day: Date, activityId: string, kelas: string, blpPeriods?: Record<string, BlpPeriod>): boolean {
   if (!isDateCountedForRecap(day, kelas, blpPeriods)) return false;
-  if (SCHOOL_ONLY_ACTIVITY_IDS.includes(activityId) && !isSchoolDay(day)) return false;
+  if (getSchoolOnlyActivityIds(day).includes(activityId) && !isSchoolDay(day)) return false;
   return true;
 }
 
@@ -29,7 +29,8 @@ function buildRekapRows(user: UserProgress, monthDate: Date, blpPeriods?: Record
 
   const rows: { no: number; name: string; target: string; marks: boolean[]; counted: boolean[]; capaian: number; targetCount: number }[][] = [];
 
-  BLP_CATEGORIES.forEach((cat) => {
+  const categories = getBlpCategoriesForDate(monthStart);
+  categories.forEach((cat) => {
     const catRows = cat.activities.map((activity, idx) => {
       const counted = daysInMonth.map((day) => isDayCountedForActivity(day, activity.id, user.kelas, blpPeriods));
       const marks = daysInMonth.map((day, i) => {
@@ -53,7 +54,7 @@ function buildRekapRows(user: UserProgress, monthDate: Date, blpPeriods?: Record
     rows.push(catRows);
   });
 
-  return { rows, totalDays, daysInMonth };
+  return { rows, totalDays, daysInMonth, categories };
 }
 
 function getSemesterLabel(monthDate: Date) {
@@ -77,7 +78,7 @@ function saveBlob(blob: Blob, filename: string) {
 }
 
 export function downloadRekapPDF(user: UserProgress, monthDate: Date, blpPeriods?: Record<string, BlpPeriod>) {
-  const { rows, totalDays } = buildRekapRows(user, monthDate, blpPeriods);
+  const { rows, totalDays, categories } = buildRekapRows(user, monthDate, blpPeriods);
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
   doc.setFontSize(11);
@@ -107,7 +108,7 @@ export function downloadRekapPDF(user: UserProgress, monthDate: Date, blpPeriods
   ];
 
   const body: any[] = [];
-  BLP_CATEGORIES.forEach((cat, catIdx) => {
+  categories.forEach((cat, catIdx) => {
     body.push([
       { content: cat.name, colSpan: 3 + TOTAL_DAY_COLS + 2, styles: { fillColor: [16, 122, 87], textColor: 255, fontStyle: 'bold', halign: 'left' } },
     ]);
@@ -172,7 +173,7 @@ export function downloadRekapPDF(user: UserProgress, monthDate: Date, blpPeriods
 }
 
 export async function downloadRekapExcel(user: UserProgress, monthDate: Date, blpPeriods?: Record<string, BlpPeriod>) {
-  const { rows, totalDays } = buildRekapRows(user, monthDate, blpPeriods);
+  const { rows, totalDays, categories } = buildRekapRows(user, monthDate, blpPeriods);
   const TOTAL_COLS = 3 + TOTAL_DAY_COLS + 2;
 
   const workbook = new ExcelJS.Workbook();
@@ -267,7 +268,7 @@ export async function downloadRekapExcel(user: UserProgress, monthDate: Date, bl
   let grandCapaian = 0;
   let grandTarget = 0;
 
-  BLP_CATEGORIES.forEach((cat, catIdx) => {
+  categories.forEach((cat, catIdx) => {
     mergeAndSet(r, 1, r, TOTAL_COLS, cat.name, { bold: true, fill: BRAND_GREEN, color: 'FFFFFFFF', border: true });
     r++;
     rows[catIdx].forEach((activityRow) => {

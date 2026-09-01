@@ -33,7 +33,7 @@ import { id as localeId } from 'date-fns/locale';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-import { BLP_CATEGORIES, PERLENGKAPAN_SEKOLAH_ITEMS } from '../data/activities';
+import { getBlpCategoriesForDate, PERLENGKAPAN_SEKOLAH_ITEMS } from '../data/activities';
 import { SystemData, DailyRecord, AuthState, ActivitySubmission, HaidPeriod } from '../types';
 import { downloadRekapPDF, downloadRekapExcel } from '../utils/rekapExport';
 import { getEffectiveTotalActivities, getEffectiveCompletedCount, isDateCountedForRecap, getBlpPeriodKeyForDate } from '../utils/blpScoring';
@@ -45,7 +45,12 @@ import GuruReviewSubmissionModal from './modals/GuruReviewSubmissionModal';
 import BlpPeriodModal from './modals/BlpPeriodModal';
 
 const QURAN_ACTIVITY_ID = 'd5';
+const CURRENT_QURAN_ACTIVITY_ID = 'v20260901-rs4';
 const CHECKLIST_ACTIVITY_ID = 'rp1';
+
+function isQuranActivity(activityId: string): boolean {
+  return activityId === QURAN_ACTIVITY_ID || activityId === CURRENT_QURAN_ACTIVITY_ID;
+}
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -213,6 +218,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
   }, [allStudents, searchQuery]);
 
   const dateKey = format(selectedDate, 'yyyy-MM-dd');
+  const categories = useMemo(() => getBlpCategoriesForDate(selectedDate), [selectedDate]);
   const totalActivities = getEffectiveTotalActivities(selectedDate);
 
   const selectedStudent = selectedStudentId ? systemData.students[selectedStudentId] : null;
@@ -904,7 +910,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
       </div>
 
       <div className={cn("grid gap-8", isPresentation ? "md:grid-cols-2" : "md:grid-cols-1")}>
-        {BLP_CATEGORIES.map((category) => (
+        {categories.map((category) => (
           <section key={category.id} className="space-y-4">
             <div className="flex items-center gap-2 px-1">
               <div className="w-1 h-6 bg-emerald-600 rounded-full" />
@@ -918,7 +924,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
                 const isDone = currentRecord.completedActivities.includes(activity.id);
                 const submission = currentRecord.submissions?.[activity.id];
                 const submissionIcon =
-                  activity.id === QURAN_ACTIVITY_ID ? <Mic size={14} /> :
+                  isQuranActivity(activity.id) ? <Mic size={14} /> :
                   activity.id === CHECKLIST_ACTIVITY_ID ? <ListChecks size={14} /> :
                   submission?.type === 'text' ? <PenLine size={14} /> : null;
                 return (
@@ -1044,7 +1050,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
       )}
       {reviewingActivityId && currentRecord.submissions?.[reviewingActivityId] && (
         <GuruReviewSubmissionModal
-          activityName={BLP_CATEGORIES.flatMap(c => c.activities).find(a => a.id === reviewingActivityId)?.name || ''}
+          activityName={categories.flatMap(c => c.activities).find(a => a.id === reviewingActivityId)?.name || ''}
           submission={currentRecord.submissions[reviewingActivityId]}
           checklistItems={reviewingActivityId === CHECKLIST_ACTIVITY_ID ? PERLENGKAPAN_SEKOLAH_ITEMS : undefined}
           onClose={() => setReviewingActivityId(null)}
