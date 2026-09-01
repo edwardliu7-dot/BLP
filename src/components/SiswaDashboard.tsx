@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, type ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { 
   CheckCircle2, 
@@ -14,6 +14,10 @@ import {
   GraduationCap,
   Download,
   Bell,
+  Sun,
+  Moon,
+  Waves,
+  Flower2,
   LogOut,
   Mic,
   PenLine,
@@ -39,6 +43,7 @@ import ProfileModal from './modals/ProfileModal';
 import { downloadRekapPDF, downloadRekapExcel } from '../utils/rekapExport';
 import { getSchoolOnlyActivityIds, isSchoolDay, getEffectiveTotalActivities, getEffectiveCompletedCount, isDateCountedForRecap } from '../utils/blpScoring';
 import PageLayout, { type NavItem } from './layout/PageLayout';
+import type { AppTheme } from '../App';
 
 const QURAN_ACTIVITY_ID = 'd5';
 const CURRENT_QURAN_ACTIVITY_ID = 'v20260901-rs4';
@@ -108,6 +113,8 @@ function cn(...inputs: ClassValue[]) {
 interface SiswaDashboardProps {
   user: UserProgress;
   blpPeriods: Record<string, BlpPeriod>;
+  theme: AppTheme;
+  onThemeChange: (theme: AppTheme) => void;
   remindersEnabled: boolean;
   toggleReminders: () => void;
   onUpdateRecord: (dateKey: string, updatedRecord: DailyRecord) => void;
@@ -121,6 +128,8 @@ interface SiswaDashboardProps {
 export default function SiswaDashboard({ 
   user, 
   blpPeriods,
+  theme,
+  onThemeChange,
   remindersEnabled, 
   toggleReminders,
   onUpdateRecord,
@@ -360,6 +369,18 @@ export default function SiswaDashboard({
     URL.revokeObjectURL(url);
   };
 
+  const themeOptions: Array<{
+    value: AppTheme;
+    label: string;
+    description: string;
+    icon: ReactNode;
+  }> = [
+    { value: 'light', label: 'Tema Terang', description: 'Cerah dan hangat', icon: <Sun size={18} /> },
+    { value: 'dark', label: 'Tema Gelap', description: 'Nyaman untuk malam hari', icon: <Moon size={18} /> },
+    { value: 'ocean', label: 'Tema Biru Laut', description: 'Tenang dan segar', icon: <Waves size={18} /> },
+    { value: 'rose', label: 'Tema Pink Mawar', description: 'Lembut dan ceria', icon: <Flower2 size={18} /> },
+  ];
+
   const navItems: NavItem[] = [
     { label: 'Harian',     icon: <LayoutDashboard size={16} />, onClick: () => setView('daily'),    isActive: view === 'daily' },
     { label: 'Kalender',   icon: <CalendarIcon size={16} />,   onClick: () => setView('monthly'),  isActive: view === 'monthly' },
@@ -437,7 +458,41 @@ export default function SiswaDashboard({
 
         {view === 'settings' ? (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <section className="app-card p-5 sm:p-6 space-y-6">
+             <section className="app-card p-5 sm:p-6 space-y-6">
+               <div>
+                 <div className="flex items-center gap-3 mb-3">
+                   <div className="theme-settings-icon p-2 rounded-lg">
+                     <Sun className="w-5 h-5" />
+                   </div>
+                   <div>
+                     <h3 className="font-bold">Tampilan Aplikasi</h3>
+                     <p className="text-xs text-slate-500 dark:text-slate-400">Pilih suasana yang paling nyaman untukmu</p>
+                   </div>
+                 </div>
+                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                   {themeOptions.map((option) => (
+                     <button
+                       key={option.value}
+                       type="button"
+                       onClick={() => onThemeChange(option.value)}
+                       aria-pressed={theme === option.value}
+                       className={cn(
+                         "theme-option flex flex-col items-center gap-1.5 rounded-xl border-2 px-2 py-3 text-center transition-all",
+                         theme === option.value
+                           ? "theme-option-active"
+                           : "border-slate-100 bg-slate-50/70 text-slate-500 hover:border-slate-200 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400"
+                       )}
+                     >
+                       <span className="theme-option-icon">{option.icon}</span>
+                       <span className="text-xs font-bold leading-tight">{option.label.replace('Tema ', '')}</span>
+                       <span className="text-[10px] leading-tight opacity-75">{option.description}</span>
+                     </button>
+                   ))}
+                 </div>
+               </div>
+
+               <div className="h-px bg-slate-100 dark:bg-slate-800" />
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
@@ -478,7 +533,7 @@ export default function SiswaDashboard({
                 </div>
                 <button 
                   onClick={exportData}
-                  className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors shadow-sm shadow-emerald-200 dark:shadow-none"
+                   className="theme-primary-button bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors shadow-sm shadow-emerald-200 dark:shadow-none"
                 >
                   <Download size={16} />
                   Ekspor
@@ -780,7 +835,7 @@ export default function SiswaDashboard({
           </>
         ) : (
           <div className="space-y-6 animate-in fade-in duration-500">
-             <div className="bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-600 text-white rounded-2xl p-6 shadow-lg shadow-emerald-900/10 transition-colors">
+             <div className="theme-primary-gradient bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-600 text-white rounded-2xl p-6 shadow-lg shadow-emerald-900/10 transition-colors">
               <h3 className="text-sm font-medium text-emerald-100 dark:text-emerald-200 mb-1">Hari Terisi Bulan Ini</h3>
               <div className="flex items-end gap-2">
                 <span className="text-4xl font-bold">{Math.round(monthlyStats.rate)}%</span>
@@ -804,7 +859,7 @@ export default function SiswaDashboard({
               <div className="flex gap-2">
                 <button
                   onClick={() => downloadRekapPDF(user, selectedDate)}
-                   className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-colors"
+                    className="theme-primary-button flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-colors"
                 >
                   <FileDown size={14} /> PDF
                 </button>

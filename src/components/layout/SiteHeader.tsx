@@ -28,7 +28,7 @@ const GeometricOverlay = () => (
 
 export default function SiteHeader({ navItems, actions }: SiteHeaderProps) {
   return (
-    <header className="bg-gradient-to-br from-[#063b2d] via-emerald-900 to-[#075e58] text-white shadow-[0_10px_30px_rgba(3,64,46,0.2)] sticky top-0 z-50 transition-colors overflow-hidden">
+    <header className="theme-header bg-gradient-to-br from-[#063b2d] via-emerald-900 to-[#075e58] text-white shadow-[0_10px_30px_rgba(3,64,46,0.2)] sticky top-0 z-50 transition-colors overflow-hidden">
       <div className="h-1 bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400" />
 
       <div className="absolute inset-0 app-pattern opacity-70" />

@@ -10,14 +10,23 @@ const GuruDashboard = lazy(() => import('./components/GuruDashboard'));
 
 const REMINDERS_KEY = 'blp_reminders';
 const AUTH_KEY = 'blp_auth_state';
+const THEME_KEY = 'blp_theme';
 
 type AppStatus = 'booting' | 'login' | 'ready';
+export type AppTheme = 'light' | 'dark' | 'ocean' | 'rose';
+
+const APP_THEMES: AppTheme[] = ['light', 'dark', 'ocean', 'rose'];
+
+function isAppTheme(value: string | null): value is AppTheme {
+  return value !== null && APP_THEMES.includes(value as AppTheme);
+}
 
 export default function App() {
   const [status, setStatus] = useState<AppStatus>('booting');
   const [systemData, setSystemData] = useState<SystemData>({ students: {}, gurus: {}, blpPeriods: {} });
   const [auth, setAuth] = useState<AuthState>({ role: null });
   const [remindersEnabled, setRemindersEnabled] = useState(false);
+  const [theme, setTheme] = useState<AppTheme>('light');
 
   // Fetch dashboard data for guru (loads all their class's students + records).
   // Siswa no longer calls this — profile is returned by login, records are lazy.
@@ -28,8 +37,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Dark mode is always on — apply immediately to avoid any flash.
-    document.documentElement.classList.add('dark');
+    const storedTheme = localStorage.getItem(THEME_KEY);
+    if (isAppTheme(storedTheme)) {
+      setTheme(storedTheme);
+    }
 
     const storedReminders = localStorage.getItem(REMINDERS_KEY);
     if (storedReminders === 'true' && 'Notification' in window && Notification.permission === 'granted') {
@@ -73,6 +84,18 @@ export default function App() {
       }
     })();
   }, [fetchGuruDashboardData]);
+
+  // Keep the document theme in sync for the whole application, including
+  // shared layout components and the guru dashboard.
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  const handleThemeChange = (nextTheme: AppTheme) => {
+    setTheme(nextTheme);
+    localStorage.setItem(THEME_KEY, nextTheme);
+  };
 
   // Called by Login after the login API succeeds.
   // Siswa: profile data comes from the login response — no extra round-trip.
@@ -357,6 +380,8 @@ export default function App() {
         <SiswaDashboard
           user={user}
           blpPeriods={systemData.blpPeriods}
+           theme={theme}
+           onThemeChange={handleThemeChange}
           remindersEnabled={remindersEnabled}
           toggleReminders={toggleReminders}
           onUpdateRecord={handleUpdateRecord}

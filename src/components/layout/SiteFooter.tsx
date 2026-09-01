@@ -8,7 +8,7 @@ const CrescentStar = () => (
 
 export default function SiteFooter() {
   return (
-    <footer className="bg-gradient-to-r from-[#063b2d] via-emerald-900 to-[#075e58] text-emerald-200 transition-colors">
+    <footer className="theme-footer bg-gradient-to-r from-[#063b2d] via-emerald-900 to-[#075e58] text-emerald-200 transition-colors">
       <div className="h-0.5 bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400" />
       <p className="text-[11px] text-center py-3 tracking-wide">
         <CrescentStar />
