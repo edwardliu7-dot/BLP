@@ -401,6 +401,8 @@ export default function App() {
         <GuruDashboard
           systemData={systemData}
           auth={auth}
+           theme={theme}
+           onThemeChange={handleThemeChange}
           onLogout={handleLogout}
           onUpdateProfile={handleUpdateGuruProfile}
           onDeleteStudent={handleDeleteStudent}

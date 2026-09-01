@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, type FormEvent } from 'react';
+import { useState, useMemo, useEffect, type FormEvent, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   LogOut, 
@@ -27,6 +27,10 @@ import {
   AlertTriangle,
   ShieldAlert,
   Info,
+  Sun,
+  Moon,
+  Waves,
+  Flower2,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, addMonths, subMonths, addDays, subDays, startOfDay, parseISO } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -38,6 +42,7 @@ import { SystemData, DailyRecord, AuthState, ActivitySubmission, HaidPeriod } fr
 import { downloadRekapPDF, downloadRekapExcel } from '../utils/rekapExport';
 import { getEffectiveTotalActivities, getEffectiveCompletedCount, isDateCountedForRecap, getBlpPeriodKeyForDate } from '../utils/blpScoring';
 import PageLayout, { type NavItem } from './layout/PageLayout';
+import type { AppTheme } from '../App';
 import { FileDown } from 'lucide-react';
 import ProfileModal from './modals/ProfileModal';
 import ConfirmModal from './modals/ConfirmModal';
@@ -114,6 +119,8 @@ function StudentAvatar({ name, studentId, size = 'md' }: { name: string; student
 interface GuruDashboardProps {
   systemData: SystemData;
   auth: AuthState;
+  theme: AppTheme;
+  onThemeChange: (theme: AppTheme) => void;
   onLogout: () => void;
   onUpdateProfile: (photoUrl: string | null, bio: string) => Promise<void> | void;
   onDeleteStudent: (studentId: string) => Promise<void>;
@@ -192,8 +199,8 @@ function analyzeHaidCycles(periods: HaidPeriod[]): HaidWarning[] {
   return warnings;
 }
 
-export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProfile, onDeleteStudent, onReviewSubmission, onSaveBlpPeriod }: GuruDashboardProps) {
-  const [view, setView] = useState<'list' | 'detail' | 'presentation' | 'recap' | 'haid'>('list');
+export default function GuruDashboard({ systemData, auth, theme, onThemeChange, onLogout, onUpdateProfile, onDeleteStudent, onReviewSubmission, onSaveBlpPeriod }: GuruDashboardProps) {
+  const [view, setView] = useState<'list' | 'detail' | 'presentation' | 'recap' | 'haid' | 'settings'>('list');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -252,6 +259,7 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
     { label: 'Daftar Siswa', icon: <Users size={16} />,      onClick: () => setView('list'),  isActive: view === 'list' || view === 'detail' || view === 'presentation' },
     { label: 'Rekap Nilai',  icon: <BarChart3 size={16} />,  onClick: () => setView('recap'), isActive: view === 'recap' },
     { label: 'Haid Siswi',   icon: <Heart size={16} />,      onClick: () => setView('haid'),  isActive: view === 'haid' },
+    { label: 'Pengaturan',   icon: <Settings2 size={16} />,  onClick: () => setView('settings'), isActive: view === 'settings' },
   ];
 
   const headerActions = (
@@ -275,6 +283,18 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
       </button>
     </>
   );
+
+  const themeOptions: Array<{
+    value: AppTheme;
+    label: string;
+    description: string;
+    icon: ReactNode;
+  }> = [
+    { value: 'light', label: 'Tema Terang', description: 'Cerah dan hangat', icon: <Sun size={18} /> },
+    { value: 'dark', label: 'Tema Gelap', description: 'Nyaman untuk malam hari', icon: <Moon size={18} /> },
+    { value: 'ocean', label: 'Tema Biru Laut', description: 'Tenang dan segar', icon: <Waves size={18} /> },
+    { value: 'rose', label: 'Tema Pink Mawar', description: 'Lembut dan ceria', icon: <Flower2 size={18} /> },
+  ];
 
   const renderDateSelector = () => (
     <div className="app-card p-4 flex items-center justify-between mb-6">
@@ -314,6 +334,52 @@ export default function GuruDashboard({ systemData, auth, onLogout, onUpdateProf
       </button>
     </div>
   );
+
+  if (view === 'settings') {
+    return (
+      <PageLayout navItems={navItems} actions={headerActions}>
+        <main className="max-w-2xl mx-auto p-4 sm:p-5 space-y-6 pb-8">
+          <div className="app-card p-4 text-center">
+            <h2 className="font-semibold text-lg">Pengaturan Aplikasi</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Sesuaikan tampilan BLP sesuai kenyamanan Anda</p>
+          </div>
+
+          <section className="app-card p-5 sm:p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="theme-settings-icon p-2 rounded-lg">
+                <Sun className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold">Tampilan Aplikasi</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Pilih suasana yang paling nyaman untuk Anda</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {themeOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => onThemeChange(option.value)}
+                  aria-pressed={theme === option.value}
+                  className={cn(
+                    "theme-option flex flex-col items-center gap-1.5 rounded-xl border-2 px-2 py-3 text-center transition-all",
+                    theme === option.value
+                      ? "theme-option-active"
+                      : "border-slate-100 bg-slate-50/70 text-slate-500 hover:border-slate-200 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400"
+                  )}
+                >
+                  <span className="theme-option-icon">{option.icon}</span>
+                  <span className="text-xs font-bold leading-tight">{option.label.replace('Tema ', '')}</span>
+                  <span className="text-[10px] leading-tight opacity-75">{option.description}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        </main>
+      </PageLayout>
+    );
+  }
 
   if (view === 'list') {
     const today = selectedDate;
