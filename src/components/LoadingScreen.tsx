@@ -6,7 +6,7 @@ interface LoadingScreenProps {
 
 export default function LoadingScreen({ message = 'Memuat data...' }: LoadingScreenProps) {
   return (
-    <div className="fixed inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-600 overflow-hidden">
+    <div className="theme-loading fixed inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-600 overflow-hidden">
 
       {/* Background decorative circles */}
       <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-white/5 blur-3xl" />

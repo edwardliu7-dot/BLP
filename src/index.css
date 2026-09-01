@@ -219,6 +219,179 @@ html[data-theme="rose"] .bg-emerald-600 {
   background-color: #d83b69 !important;
 }
 
+/* Keep the two alternate palettes consistent across the existing utility
+   classes used by dashboards, modals, loaders, and progress indicators.
+   Attribute selectors intentionally match only the unprefixed utility token,
+   so hover:/dark:/focus: variants keep their normal state behavior. */
+html[data-theme="ocean"] [class^="bg-emerald-"],
+html[data-theme="ocean"] [class*=" bg-emerald-"],
+html[data-theme="ocean"] [class^="bg-teal-"],
+html[data-theme="ocean"] [class*=" bg-teal-"],
+html[data-theme="rose"] [class^="bg-emerald-"],
+html[data-theme="rose"] [class*=" bg-emerald-"],
+html[data-theme="rose"] [class^="bg-teal-"],
+html[data-theme="rose"] [class*=" bg-teal-"] {
+  background-color: var(--theme-primary-soft) !important;
+}
+
+html[data-theme="ocean"] [class^="bg-emerald-4"],
+html[data-theme="ocean"] [class*=" bg-emerald-4"],
+html[data-theme="ocean"] [class^="bg-emerald-5"],
+html[data-theme="ocean"] [class*=" bg-emerald-5"],
+html[data-theme="ocean"] [class^="bg-emerald-6"],
+html[data-theme="ocean"] [class*=" bg-emerald-6"],
+html[data-theme="ocean"] [class^="bg-emerald-7"],
+html[data-theme="ocean"] [class*=" bg-emerald-7"],
+html[data-theme="ocean"] [class^="bg-emerald-8"],
+html[data-theme="ocean"] [class*=" bg-emerald-8"],
+html[data-theme="ocean"] [class^="bg-emerald-9"],
+html[data-theme="ocean"] [class*=" bg-emerald-9"],
+html[data-theme="ocean"] [class^="bg-teal-4"],
+html[data-theme="ocean"] [class*=" bg-teal-4"],
+html[data-theme="ocean"] [class^="bg-teal-5"],
+html[data-theme="ocean"] [class*=" bg-teal-5"],
+html[data-theme="ocean"] [class^="bg-teal-6"],
+html[data-theme="ocean"] [class*=" bg-teal-6"],
+html[data-theme="ocean"] [class^="bg-teal-7"],
+html[data-theme="ocean"] [class*=" bg-teal-7"],
+html[data-theme="rose"] [class^="bg-emerald-4"],
+html[data-theme="rose"] [class*=" bg-emerald-4"],
+html[data-theme="rose"] [class^="bg-emerald-5"],
+html[data-theme="rose"] [class*=" bg-emerald-5"],
+html[data-theme="rose"] [class^="bg-emerald-6"],
+html[data-theme="rose"] [class*=" bg-emerald-6"],
+html[data-theme="rose"] [class^="bg-emerald-7"],
+html[data-theme="rose"] [class*=" bg-emerald-7"],
+html[data-theme="rose"] [class^="bg-emerald-8"],
+html[data-theme="rose"] [class*=" bg-emerald-8"],
+html[data-theme="rose"] [class^="bg-emerald-9"],
+html[data-theme="rose"] [class*=" bg-emerald-9"],
+html[data-theme="rose"] [class^="bg-teal-4"],
+html[data-theme="rose"] [class*=" bg-teal-4"],
+html[data-theme="rose"] [class^="bg-teal-5"],
+html[data-theme="rose"] [class*=" bg-teal-5"],
+html[data-theme="rose"] [class^="bg-teal-6"],
+html[data-theme="rose"] [class*=" bg-teal-6"],
+html[data-theme="rose"] [class^="bg-teal-7"],
+html[data-theme="rose"] [class*=" bg-teal-7"] {
+  background-color: var(--theme-primary) !important;
+}
+
+html[data-theme="ocean"] [class^="text-emerald-"],
+html[data-theme="ocean"] [class*=" text-emerald-"],
+html[data-theme="ocean"] [class^="text-teal-"],
+html[data-theme="ocean"] [class*=" text-teal-"],
+html[data-theme="rose"] [class^="text-emerald-"],
+html[data-theme="rose"] [class*=" text-emerald-"],
+html[data-theme="rose"] [class^="text-teal-"],
+html[data-theme="rose"] [class*=" text-teal-"] {
+  color: var(--theme-primary-dark) !important;
+}
+
+html[data-theme="ocean"] [class^="border-emerald-"],
+html[data-theme="ocean"] [class*=" border-emerald-"],
+html[data-theme="ocean"] [class^="border-teal-"],
+html[data-theme="ocean"] [class*=" border-teal-"],
+html[data-theme="rose"] [class^="border-emerald-"],
+html[data-theme="rose"] [class*=" border-emerald-"],
+html[data-theme="rose"] [class^="border-teal-"],
+html[data-theme="rose"] [class*=" border-teal-"] {
+  border-color: var(--theme-border) !important;
+}
+
+html[data-theme="ocean"] [class^="from-emerald-"],
+html[data-theme="ocean"] [class*=" from-emerald-"],
+html[data-theme="ocean"] [class^="via-emerald-"],
+html[data-theme="ocean"] [class*=" via-emerald-"],
+html[data-theme="ocean"] [class^="to-teal-"],
+html[data-theme="ocean"] [class*=" to-teal-"],
+html[data-theme="rose"] [class^="from-emerald-"],
+html[data-theme="rose"] [class*=" from-emerald-"],
+html[data-theme="rose"] [class^="via-emerald-"],
+html[data-theme="rose"] [class*=" via-emerald-"],
+html[data-theme="rose"] [class^="to-teal-"],
+html[data-theme="rose"] [class*=" to-teal-"] {
+  background-image: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-dark)) !important;
+}
+
+html[data-theme="ocean"] [class*="hover:bg-emerald-"]:hover,
+html[data-theme="ocean"] [class*="hover:bg-teal-"]:hover,
+html[data-theme="rose"] [class*="hover:bg-emerald-"]:hover,
+html[data-theme="rose"] [class*="hover:bg-teal-"]:hover {
+  background-color: var(--theme-primary-dark) !important;
+}
+
+html[data-theme="ocean"] [class*="hover:border-emerald-"]:hover,
+html[data-theme="ocean"] [class*="hover:border-teal-"]:hover,
+html[data-theme="rose"] [class*="hover:border-emerald-"]:hover,
+html[data-theme="rose"] [class*="hover:border-teal-"]:hover {
+  border-color: var(--theme-primary) !important;
+}
+
+html[data-theme="ocean"] [class*="focus:ring-emerald-"]:focus,
+html[data-theme="ocean"] [class*="focus:ring-teal-"]:focus,
+html[data-theme="rose"] [class*="focus:ring-emerald-"]:focus,
+html[data-theme="rose"] [class*="focus:ring-teal-"]:focus {
+  --tw-ring-color: color-mix(in srgb, var(--theme-primary) 45%, transparent) !important;
+}
+
+html[data-theme="ocean"] [class^="fill-emerald-"],
+html[data-theme="ocean"] [class*=" fill-emerald-"],
+html[data-theme="rose"] [class^="fill-emerald-"],
+html[data-theme="rose"] [class*=" fill-emerald-"] {
+  fill: var(--theme-primary) !important;
+}
+
+html[data-theme="ocean"] [class*="accent-emerald-"],
+html[data-theme="rose"] [class*="accent-emerald-"] {
+  accent-color: var(--theme-primary) !important;
+}
+
+html[data-theme="ocean"] [class*="shadow-emerald-"],
+html[data-theme="rose"] [class*="shadow-emerald-"] {
+  --tw-shadow-color: color-mix(in srgb, var(--theme-primary) 20%, transparent) !important;
+}
+
+html[data-theme="ocean"] .theme-header,
+html[data-theme="ocean"] .theme-footer,
+html[data-theme="rose"] .theme-header,
+html[data-theme="rose"] .theme-footer {
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--theme-primary-dark) 22%, transparent);
+}
+
+html[data-theme="ocean"] .theme-footer,
+html[data-theme="rose"] .theme-footer {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+html[data-theme="ocean"] .theme-header [class*="text-emerald-"],
+html[data-theme="ocean"] .theme-footer [class*="text-emerald-"],
+html[data-theme="rose"] .theme-header [class*="text-emerald-"],
+html[data-theme="rose"] .theme-footer [class*="text-emerald-"] {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+html[data-theme="ocean"] .theme-loading [class*="text-emerald-"],
+html[data-theme="ocean"] .theme-loading [class*="text-teal-"],
+html[data-theme="rose"] .theme-loading [class*="text-emerald-"],
+html[data-theme="rose"] .theme-loading [class*="text-teal-"] {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+html[data-theme="ocean"] .theme-primary-gradient [class*="text-emerald-"],
+html[data-theme="ocean"] .theme-primary-gradient [class*="text-teal-"],
+html[data-theme="rose"] .theme-primary-gradient [class*="text-emerald-"],
+html[data-theme="rose"] .theme-primary-gradient [class*="text-teal-"] {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+html[data-theme="ocean"] .theme-option-active,
+html[data-theme="rose"] .theme-option-active {
+  background-color: var(--theme-primary-soft) !important;
+  border-color: var(--theme-primary) !important;
+  color: var(--theme-primary-dark) !important;
+}
+
 .app-pattern {
   background-image:
     linear-gradient(30deg, rgba(255, 255, 255, 0.05) 12%, transparent 12.5%, transparent 87%, rgba(255, 255, 255, 0.05) 87.5%, rgba(255, 255, 255, 0.05)),
