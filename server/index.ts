@@ -258,6 +258,26 @@ async function loadGuruRecords(guruId: string): Promise<Record<string, DailyReco
   return records;
 }
 
+function getDashboardErrorResponse(err: unknown): { error: string; code?: string } {
+  const databaseCode = typeof err === 'object' && err !== null && 'code' in err
+    ? String((err as { code?: unknown }).code || '')
+    : '';
+
+  if (databaseCode === '42P01') {
+    return {
+      error: 'Struktur database dashboard belum lengkap: tabel yang dibutuhkan belum tersedia.',
+      code: 'DASHBOARD_TABLE_MISSING',
+    };
+  }
+  if (databaseCode === '42703') {
+    return {
+      error: 'Struktur database dashboard belum lengkap: kolom yang dibutuhkan belum tersedia.',
+      code: 'DASHBOARD_COLUMN_MISSING',
+    };
+  }
+  return { error: 'Gagal memuat data dashboard', code: 'DASHBOARD_LOAD_FAILED' };
+}
+
 async function loadGuruMonitoring(): Promise<NonNullable<SystemData['guruMonitoring']>> {
   const [guruRes, recordsRes] = await Promise.all([
     pool.query('SELECT id, username, name, jabatan, wali_kelas_kelas, photo_url, bio FROM gurus ORDER BY name'),
@@ -478,7 +498,7 @@ app.get('/api/me/dashboard-data', async (req, res) => {
     });
   } catch (err) {
     console.error('Failed to load dashboard data', err);
-    res.status(500).json({ error: 'Gagal memuat data dashboard' });
+    res.status(500).json(getDashboardErrorResponse(err));
   }
 });
 
@@ -1410,8 +1430,54 @@ async function ensureSchema() {
   `);
 }
 
+async function ensureLegacyRecordColumns() {
+  await pool.query(`
+    DO $$ BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'students'
+      ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'daily_records'
+      ) THEN
+        CREATE TABLE daily_records (
+          student_id text NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+          record_date date NOT NULL,
+          completed_activities text[] NOT NULL DEFAULT '{}',
+          score integer,
+          submissions jsonb NOT NULL DEFAULT '{}',
+          updated_at timestamptz NOT NULL DEFAULT now(),
+          PRIMARY KEY (student_id, record_date)
+        );
+      END IF;
+    END $$
+  `);
+
+  const recordTables = ['daily_records', 'guru_daily_records'] as const;
+  for (const tableName of recordTables) {
+    const tableRes = await pool.query(
+      `SELECT 1
+         FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = $1`,
+      [tableName],
+    );
+    if (tableRes.rowCount === 0) continue;
+
+    // These identifiers come only from the fixed allowlist above.
+    await pool.query(`
+      ALTER TABLE ${tableName}
+        ADD COLUMN IF NOT EXISTS completed_activities text[] NOT NULL DEFAULT '{}',
+        ADD COLUMN IF NOT EXISTS score integer,
+        ADD COLUMN IF NOT EXISTS submissions jsonb NOT NULL DEFAULT '{}',
+        ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()
+    `);
+  }
+}
+
+// Legacy schema migration runs during startup before the app begins serving.
 async function startServer() {
   await ensureSchema();
+  await ensureLegacyRecordColumns();
   const port = Number(process.env.PORT) || 5000;
 
   if (process.env.NODE_ENV === 'production') {
