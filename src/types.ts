@@ -74,6 +74,32 @@ export interface UserProgress {
   records: Record<string, DailyRecord>;
 }
 
+export interface StudentDashboardSummary {
+  id: string;
+  name: string;
+  kelas: string;
+  today: {
+    date: string;
+    completedCount: number;
+    totalActivities: number;
+    percentage: number;
+    hasRecord: boolean;
+  };
+}
+
+export interface StudentRecapSummary {
+  average: number | null;
+  scoredDays: number;
+}
+
+export interface StudentHaidSummary {
+  id: string;
+  name: string;
+  kelas: string;
+  jenisKelamin: 'L' | 'P' | null;
+  haidPeriods: HaidPeriod[];
+}
+
 export interface GuruProfile {
   id: string;
   username: string;
@@ -96,6 +122,8 @@ export interface SystemData {
   students: Record<string, UserProgress>;
   gurus: Record<string, GuruProfile>;
   blpPeriods: Record<string, BlpPeriod>; // key: `${kelas}__${year}-${month}`
+  studentSummaries?: Record<string, StudentDashboardSummary>;
+  studentSummaryDate?: string;
 }
 
 export type Role = 'siswa' | 'guru' | null;

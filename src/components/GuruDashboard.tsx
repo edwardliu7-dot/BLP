@@ -32,15 +32,25 @@ import {
   Waves,
   Flower2,
 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, addMonths, subMonths, addDays, subDays, startOfDay, parseISO } from 'date-fns';
+import { format, isSameDay, addMonths, subMonths, addDays, subDays, startOfDay, parseISO } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 import { getBlpCategoriesForDate, PERLENGKAPAN_SEKOLAH_ITEMS } from '../data/activities';
-import { SystemData, DailyRecord, AuthState, ActivitySubmission, HaidPeriod } from '../types';
+import {
+  SystemData,
+  DailyRecord,
+  AuthState,
+  ActivitySubmission,
+  HaidPeriod,
+  StudentDashboardSummary,
+  StudentRecapSummary,
+  StudentHaidSummary,
+  UserProgress,
+} from '../types';
 import { downloadRekapPDF, downloadRekapExcel } from '../utils/rekapExport';
-import { getEffectiveTotalActivities, getEffectiveCompletedCount, isDateCountedForRecap, getBlpPeriodKeyForDate } from '../utils/blpScoring';
+import { getEffectiveTotalActivities, getEffectiveCompletedCount, getBlpPeriodKeyForDate } from '../utils/blpScoring';
 import PageLayout, { type NavItem } from './layout/PageLayout';
 import type { AppTheme } from '../App';
 import { FileDown } from 'lucide-react';
@@ -123,6 +133,10 @@ interface GuruDashboardProps {
   onThemeChange: (theme: AppTheme) => void;
   onLogout: () => void;
   onUpdateProfile: (photoUrl: string | null, bio: string) => Promise<void> | void;
+  onLoadStudent: (studentId: string) => Promise<UserProgress>;
+  onLoadSummaryForDate: (date: Date) => Promise<void>;
+  onLoadRecap: (date: Date) => Promise<Record<string, StudentRecapSummary>>;
+  onLoadHaidSummary: () => Promise<StudentHaidSummary[]>;
   onDeleteStudent: (studentId: string) => Promise<void>;
   onReviewSubmission: (studentId: string, dateKey: string, activityId: string) => Promise<void>;
   onSaveBlpPeriod: (kelas: string, year: number, month: number, startDay: number, endDay: number) => Promise<void>;
@@ -199,7 +213,21 @@ function analyzeHaidCycles(periods: HaidPeriod[]): HaidWarning[] {
   return warnings;
 }
 
-export default function GuruDashboard({ systemData, auth, theme, onThemeChange, onLogout, onUpdateProfile, onDeleteStudent, onReviewSubmission, onSaveBlpPeriod }: GuruDashboardProps) {
+export default function GuruDashboard({
+  systemData,
+  auth,
+  theme,
+  onThemeChange,
+  onLogout,
+  onUpdateProfile,
+  onLoadStudent,
+  onLoadSummaryForDate,
+  onLoadRecap,
+  onLoadHaidSummary,
+  onDeleteStudent,
+  onReviewSubmission,
+  onSaveBlpPeriod,
+}: GuruDashboardProps) {
   const [view, setView] = useState<'list' | 'detail' | 'presentation' | 'recap' | 'haid' | 'settings'>('list');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
@@ -208,10 +236,16 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
   const [reviewingActivityId, setReviewingActivityId] = useState<string | null>(null);
   const [showPeriodModal, setShowPeriodModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loadingStudentId, setLoadingStudentId] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [recapData, setRecapData] = useState<Record<string, StudentRecapSummary>>({});
+  const [recapLoading, setRecapLoading] = useState(false);
+  const [haidStudents, setHaidStudents] = useState<StudentHaidSummary[]>([]);
+  const [haidLoading, setHaidLoading] = useState(false);
   const guru = auth.userId ? systemData.gurus[auth.userId] : null;
 
   const allowedClasses = auth.kelasWali || [];
-  const allStudents = Object.values(systemData.students)
+  const allStudents: StudentDashboardSummary[] = Object.values(systemData.studentSummaries || {})
     .filter(s => allowedClasses.includes(s.kelas))
     .sort((a, b) => {
       if (a.kelas !== b.kelas) return a.kelas.localeCompare(b.kelas, 'id');
@@ -231,29 +265,86 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
   const selectedStudent = selectedStudentId ? systemData.students[selectedStudentId] : null;
   const currentRecord = selectedStudent?.records[dateKey] || { date: dateKey, completedActivities: [] };
   const autoScore = Math.round((getEffectiveCompletedCount(selectedDate, currentRecord.completedActivities, selectedStudent?.haidPeriods) / totalActivities) * 100);
+  const deletingStudentName = deletingStudentId
+    ? systemData.students[deletingStudentId]?.name
+      || systemData.studentSummaries?.[deletingStudentId]?.name
+      || 'siswa'
+    : 'siswa';
 
   // Compute stats for today
   const todayStats = useMemo(() => {
-    const d = selectedDate;
-    const dKey = format(d, 'yyyy-MM-dd');
-    const dTotal = getEffectiveTotalActivities(d);
     let filled = 0;
     let totalScore = 0;
     allStudents.forEach(s => {
-      const r = s.records[dKey];
-      const count = r ? getEffectiveCompletedCount(d, r.completedActivities, selectedStudent?.haidPeriods) : 0;
-      if (count > 0) filled++;
-      totalScore += Math.round((count / dTotal) * 100);
+      if (s.today.hasRecord) filled++;
+      totalScore += s.today.percentage;
     });
     const notFilled = allStudents.length - filled;
     const avg = allStudents.length > 0 ? (totalScore / allStudents.length).toFixed(1) : '0';
     return { total: allStudents.length, filled, notFilled, avg };
   }, [allStudents, selectedDate]);
 
-  const handleSelectStudent = (id: string) => {
+  const handleSelectStudent = async (id: string) => {
     setSelectedStudentId(id);
     setView('detail');
+    if (systemData.students[id]) return;
+    setLoadingStudentId(id);
+    try {
+      await onLoadStudent(id);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoadingStudentId(null);
+    }
   };
+
+  const handleDownloadRekap = async (studentId: string, kind: 'pdf' | 'excel') => {
+    try {
+      const student = systemData.students[studentId] || await onLoadStudent(studentId);
+      if (kind === 'pdf') {
+        downloadRekapPDF(student, selectedDate, systemData.blpPeriods);
+      } else {
+        await downloadRekapExcel(student, selectedDate, systemData.blpPeriods);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    if (view !== 'list') return;
+    const dateKey = format(selectedDate, 'yyyy-MM-dd');
+    if (systemData.studentSummaryDate === dateKey) return;
+
+    let cancelled = false;
+    setSummaryLoading(true);
+    onLoadSummaryForDate(selectedDate)
+      .catch(error => console.error(error))
+      .finally(() => { if (!cancelled) setSummaryLoading(false); });
+    return () => { cancelled = true; };
+  }, [view, selectedDate, systemData.studentSummaryDate, onLoadSummaryForDate]);
+
+  useEffect(() => {
+    if (view !== 'recap') return;
+    let cancelled = false;
+    setRecapLoading(true);
+    onLoadRecap(selectedDate)
+      .then(data => { if (!cancelled) setRecapData(data); })
+      .catch(error => console.error(error))
+      .finally(() => { if (!cancelled) setRecapLoading(false); });
+    return () => { cancelled = true; };
+  }, [view, selectedDate, onLoadRecap]);
+
+  useEffect(() => {
+    if (view !== 'haid') return;
+    let cancelled = false;
+    setHaidLoading(true);
+    onLoadHaidSummary()
+      .then(data => { if (!cancelled) setHaidStudents(data); })
+      .catch(error => console.error(error))
+      .finally(() => { if (!cancelled) setHaidLoading(false); });
+    return () => { cancelled = true; };
+  }, [view, onLoadHaidSummary]);
 
   const navItems: NavItem[] = [
     { label: 'Daftar Siswa', icon: <Users size={16} />,      onClick: () => setView('list'),  isActive: view === 'list' || view === 'detail' || view === 'presentation' },
@@ -382,9 +473,6 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
   }
 
   if (view === 'list') {
-    const today = selectedDate;
-    const todayKey2 = format(today, 'yyyy-MM-dd');
-    const todayTotalAct = getEffectiveTotalActivities(today);
     const isListToday = isSameDay(selectedDate, new Date());
 
     return (
@@ -490,6 +578,11 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
               <div className="px-4 py-2.5 text-center">Aksi</div>
             </div>
 
+            {summaryLoading && (
+              <div className="px-4 py-2 text-xs text-emerald-700 bg-emerald-50/70 dark:bg-emerald-900/20 dark:text-emerald-300">
+                Memuat persentase untuk tanggal yang dipilih...
+              </div>
+            )}
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {students.length === 0 ? (
                 <div className="p-8 text-center text-slate-500">
@@ -497,10 +590,9 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
                 </div>
               ) : (
                 students.map(s => {
-                  const sTodayRecord = s.records[todayKey2];
-                  const sCount = sTodayRecord ? getEffectiveCompletedCount(today, sTodayRecord.completedActivities, s.haidPeriods) : 0;
-                  const autoStudentScore = Math.round((sCount / todayTotalAct) * 100);
-                  const pct = Math.round((sCount / todayTotalAct) * 100);
+                  const sCount = s.today.completedCount;
+                  const autoStudentScore = s.today.percentage;
+                  const pct = s.today.percentage;
                   const status = pct === 100 ? 'Selesai' : pct > 0 ? 'Proses' : 'Belum';
                   const statusClass = status === 'Selesai'
                     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
@@ -515,7 +607,7 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
                         onClick={() => handleSelectStudent(s.id)}
                         className="flex items-center gap-3 text-left flex-1 min-w-0"
                       >
-                        <StudentAvatar name={s.name} studentId={s.id} size="sm" />
+                        <StudentAvatar name={s.name} size="sm" />
                         <div className="min-w-0">
                           <p className="font-bold text-emerald-950 dark:text-slate-100 truncate">{s.name}</p>
                           <p className="text-xs text-slate-400">{s.kelas}</p>
@@ -524,7 +616,7 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
 
                       {/* Progress bar */}
                       <div className="sm:px-4 flex flex-col items-center gap-1 w-full sm:w-auto">
-                        <span className="text-xs text-slate-400">{sCount}/{todayTotalAct}</span>
+                        <span className="text-xs text-slate-400">{sCount}/{s.today.totalActivities}</span>
                         <div className="w-24 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all"
@@ -556,22 +648,6 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
                         >
                           <Eye size={15} />
                         </button>
-                        <a
-                          href={`https://wa.me/${s.whatsapp}?text=${encodeURIComponent(`Halo ${s.name}, jangan lupa untuk mengisi Buku Laporan Pendidikan (BLP) hari ini ya!`)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-2 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 rounded-xl transition-colors"
-                          title="Kirim Pengingat WA"
-                        >
-                          <MessageCircle size={15} />
-                        </a>
-                        <a
-                          href={`mailto:${s.email}?subject=Pengingat Pengisian BLP&body=${encodeURIComponent(`Halo ${s.name},\n\nJangan lupa untuk mengisi Buku Laporan Pendidikan (BLP) harian Anda.\n\nTerima kasih.`)}`}
-                          className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 rounded-xl transition-colors"
-                          title="Kirim Pengingat Email"
-                        >
-                          <Mail size={15} />
-                        </a>
                         <button
                           onClick={() => setDeletingStudentId(s.id)}
                           className="p-2 text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 rounded-xl transition-colors"
@@ -600,7 +676,7 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
         {deletingStudentId && (
           <ConfirmModal
             title="Hapus Akun Siswa?"
-            message={`Akun "${systemData.students[deletingStudentId]?.name}" beserta seluruh riwayat BLP-nya akan dihapus permanen. Akun yang sudah terhapus tidak dapat dikembalikan.`}
+            message={`Akun "${deletingStudentName}" beserta seluruh riwayat BLP-nya akan dihapus permanen. Akun yang sudah terhapus tidak dapat dikembalikan.`}
             confirmLabel="Ya, Hapus Akun"
             onClose={() => setDeletingStudentId(null)}
             onConfirm={async () => {
@@ -614,10 +690,6 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
   }
 
   if (view === 'recap') {
-    const monthStart = startOfMonth(selectedDate);
-    const monthEnd = endOfMonth(selectedDate);
-    const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-
     return (
       <PageLayout navItems={navItems} actions={headerActions}>
         <main className="max-w-5xl mx-auto p-4 space-y-5 mt-4">
@@ -662,29 +734,23 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {allStudents.map(s => {
-                  let totalScore = 0;
-                  let scoredDaysCount = 0;
-
-                  daysInMonth.forEach(day => {
-                    if (!isDateCountedForRecap(day, s.kelas, systemData.blpPeriods)) return;
-                    const k = format(day, 'yyyy-MM-dd');
-                    const r = s.records[k];
-                    if (r && r.completedActivities.length > 0) {
-                      const dayTotal = getEffectiveTotalActivities(day);
-                      const dayDone = getEffectiveCompletedCount(day, r.completedActivities, s.haidPeriods);
-                      totalScore += Math.round((dayDone / dayTotal) * 100);
-                      scoredDaysCount++;
-                    }
-                  });
-
-                  const avgNum = scoredDaysCount > 0 ? totalScore / scoredDaysCount : null;
+                {recapLoading ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-slate-500">Memuat ringkasan rekap...</td></tr>
+                ) : allStudents.map(s => {
+                  const summary = recapData[s.id];
+                  const avgNum = summary?.average ?? null;
                   const avg = avgNum !== null ? avgNum.toFixed(1) : '-';
 
                   return (
                     <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                       <td className="p-3 font-medium text-slate-800 dark:text-slate-100 sticky left-0 bg-white dark:bg-slate-900 z-10 w-52 min-w-[13rem] max-w-[13rem]">
-                        <span className="block truncate" title={s.name}>{s.name}</span>
+                        <button
+                          onClick={() => handleSelectStudent(s.id)}
+                          className="block truncate text-left hover:text-emerald-700"
+                          title={`Buka detail ${s.name}`}
+                        >
+                          {s.name}
+                        </button>
                       </td>
                       <td className="p-3 text-center text-xs text-slate-500 dark:text-slate-400 font-semibold whitespace-nowrap">{s.kelas}</td>
                       <td className="p-3 text-center">
@@ -696,18 +762,18 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
                           <span className="text-slate-400 text-sm">—</span>
                         )}
                       </td>
-                      <td className="p-3 text-center text-sm text-slate-500 dark:text-slate-400">{scoredDaysCount} hari</td>
+                      <td className="p-3 text-center text-sm text-slate-500 dark:text-slate-400">{summary?.scoredDays || 0} hari</td>
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button
-                            onClick={() => downloadRekapPDF(s, selectedDate, systemData.blpPeriods)}
+                            onClick={() => handleDownloadRekap(s.id, 'pdf')}
                             title="Unduh PDF"
                             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-xs font-semibold transition-colors"
                           >
                             <FileDown size={13} /> PDF
                           </button>
                           <button
-                            onClick={() => downloadRekapExcel(s, selectedDate, systemData.blpPeriods)}
+                            onClick={() => handleDownloadRekap(s.id, 'excel')}
                             title="Unduh Excel"
                             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 text-xs font-semibold transition-colors"
                           >
@@ -739,17 +805,16 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
   if (view === 'haid') {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayStr = format(today, 'yyyy-MM-dd');
 
     // Only female students in the guru's class
-    const femaleStudents = allStudents.filter(s => s.jenisKelamin === 'P');
+    const femaleStudents = haidStudents.filter(s => s.jenisKelamin === 'P');
     // Also include students with no jenis_kelamin set (unknown) who have any haid records
-    const unknownWithHaid = allStudents.filter(
+    const unknownWithHaid = haidStudents.filter(
       s => s.jenisKelamin !== 'P' && (s.haidPeriods || []).length > 0
     );
-    const haidStudents = [...femaleStudents, ...unknownWithHaid];
+    const visibleHaidStudents = [...femaleStudents, ...unknownWithHaid];
 
-    const allWarnings = haidStudents.flatMap(s =>
+    const allWarnings = visibleHaidStudents.flatMap(s =>
       analyzeHaidCycles(s.haidPeriods || []).map(w => ({ student: s, ...w }))
     );
     const alertCount = allWarnings.filter(w => w.level === 'alert').length;
@@ -779,7 +844,7 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
                 </p>
               </div>
             </div>
-          ) : haidStudents.length > 0 ? (
+          ) : visibleHaidStudents.length > 0 ? (
             <div className="rounded-2xl p-5 flex items-center gap-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
               <Heart size={22} className="text-emerald-500 fill-emerald-500 shrink-0" />
               <p className="font-semibold text-emerald-800 dark:text-emerald-200">
@@ -788,7 +853,11 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
             </div>
           ) : null}
 
-          {haidStudents.length === 0 ? (
+          {haidLoading ? (
+            <div className="app-card p-8 text-center text-slate-500 dark:text-slate-400">
+              Memuat ringkasan haid...
+            </div>
+          ) : visibleHaidStudents.length === 0 ? (
             <div className="app-card p-8 text-center text-slate-500 dark:text-slate-400">
               <Heart size={32} className="mx-auto mb-3 text-slate-300" />
               <p className="font-semibold">Belum ada data haid</p>
@@ -796,7 +865,7 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
             </div>
           ) : (
             <div className="space-y-4">
-              {haidStudents.map(s => {
+              {visibleHaidStudents.map(s => {
                 const periods = s.haidPeriods || [];
                 const active = periods.find(p => p.endDate === null);
                 const warnings = analyzeHaidCycles(periods);
@@ -813,9 +882,14 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
                         : "bg-slate-50 dark:bg-slate-800/60 border-slate-100 dark:border-slate-800"
                     )}>
                       <div className="flex items-center gap-3">
-                        <StudentAvatar name={s.name} studentId={s.id} size="md" />
+                        <StudentAvatar name={s.name} size="md" />
                         <div>
-                          <p className="font-bold text-slate-800 dark:text-slate-100">{s.name}</p>
+                          <button
+                            onClick={() => handleSelectStudent(s.id)}
+                            className="font-bold text-left text-slate-800 dark:text-slate-100 hover:text-emerald-700"
+                          >
+                            {s.name}
+                          </button>
                           <p className="text-xs text-slate-500 dark:text-slate-400">{s.kelas}</p>
                         </div>
                       </div>
@@ -923,7 +997,15 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
   }
 
   // Detail View & Presentation View
-  if (!selectedStudent) return null;
+  if (!selectedStudent) {
+    return (
+      <PageLayout navItems={navItems} actions={headerActions}>
+        <main className="max-w-3xl mx-auto p-8 text-center text-slate-500 dark:text-slate-400">
+          {loadingStudentId ? 'Memuat data siswa...' : 'Data siswa belum tersedia.'}
+        </main>
+      </PageLayout>
+    );
+  }
 
   const completedCount = currentRecord.completedActivities.length;
   const isPresentation = view === 'presentation';
@@ -949,6 +1031,26 @@ export default function GuruDashboard({ systemData, auth, theme, onThemeChange, 
           <div>
             <p className="font-bold text-lg text-slate-800 dark:text-slate-100 leading-tight">{selectedStudent.name}</p>
             <p className="text-sm text-slate-500 dark:text-slate-400">{selectedStudent.kelas}</p>
+             <div className="flex items-center gap-2 mt-2">
+               {selectedStudent.whatsapp && (
+                 <a
+                   href={`https://wa.me/${selectedStudent.whatsapp}?text=${encodeURIComponent(`Halo ${selectedStudent.name}, jangan lupa untuk mengisi Buku Laporan Pendidikan (BLP) hari ini ya!`)}`}
+                   target="_blank"
+                   rel="noreferrer"
+                   className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+                 >
+                   <MessageCircle size={13} /> WhatsApp
+                 </a>
+               )}
+               {selectedStudent.email && (
+                 <a
+                   href={`mailto:${selectedStudent.email}?subject=Pengingat Pengisian BLP&body=${encodeURIComponent(`Halo ${selectedStudent.name},\n\nJangan lupa untuk mengisi Buku Laporan Pendidikan (BLP) harian Anda.\n\nTerima kasih.`)}`}
+                   className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100"
+                 >
+                   <Mail size={13} /> Email
+                 </a>
+               )}
+             </div>
           </div>
         </div>
       )}

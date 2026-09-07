@@ -2,8 +2,19 @@ import express from 'express';
 import session from 'express-session';
 import bcrypt from 'bcryptjs';
 import { pool } from './db';
-import type { UserProgress, GuruProfile, DailyRecord, SystemData, BlpPeriod, HaidPeriod } from '../src/types';
+import type {
+  UserProgress,
+  GuruProfile,
+  DailyRecord,
+  SystemData,
+  BlpPeriod,
+  HaidPeriod,
+  StudentDashboardSummary,
+  StudentRecapSummary,
+  StudentHaidSummary,
+} from '../src/types';
 import { KELAS_OPTIONS } from '../src/types';
+import { getEffectiveCompletedCount, getEffectiveTotalActivities, isDateCountedForRecap } from '../src/utils/blpScoring';
 
 declare module 'express-session' {
   interface SessionData {
@@ -205,6 +216,21 @@ async function loadBlpPeriods(): Promise<SystemData['blpPeriods']> {
   return periods;
 }
 
+async function getMatchingKelasValues(kelasWali: string): Promise<string[]> {
+  const distinctKelasRes = await pool.query('SELECT DISTINCT kelas FROM students');
+  return distinctKelasRes.rows
+    .map((row: { kelas: string }) => row.kelas)
+    .filter((kelas: string) => normalizeKelas(kelas) === kelasWali);
+}
+
+function dateFromKey(dateKey: string): Date {
+  return new Date(`${dateKey}T12:00:00`);
+}
+
+function dateKeyFromDb(value: Date | string): string {
+  return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+}
+
 // Build a student profile response (no records) used by login and session restore.
 // Records are loaded lazily by the dashboard on demand.
 async function buildSiswaProfileResponse(userId: string): Promise<{
@@ -276,106 +302,68 @@ app.get('/api/me/dashboard-data', async (req, res) => {
       return res.json({ students: { [profile.student.id]: profile.student }, gurus: {}, blpPeriods: profile.blpPeriods });
     }
 
-    // Guru — load only the wali's own class
+    // Guru — return only the compact dashboard summary. Full student data is
+    // loaded by GET /api/guru/students/:id after the teacher opens a student.
     const guru = await loadGuru(req.session.userId);
     if (!guru) return res.status(403).json({ error: 'Hanya wali kelas yang dapat mengakses ini' });
 
     const kelasWali = guru.kelasWali[0];
-
-    // Phase 1a: Resolve all DB kelas spellings that normalise to kelasWali.
-    // The students table is written by an external app and may have spelling
-    // variants (e.g. "Batutah" vs "Batuttah"). We cannot express our JS
-    // normalisation in SQL, so we first fetch the small set of distinct kelas
-    // values, find the ones that match, then use WHERE kelas = ANY($1) in the
-    // heavy query — avoiding a full-table scan on students.
-    const distinctKelasRes = await pool.query('SELECT DISTINCT kelas FROM students');
-    const matchingKelasValues: string[] = distinctKelasRes.rows
-      .map((r: { kelas: string }) => r.kelas)
-      .filter((k: string) => normalizeKelas(k) === kelasWali);
-
-    // Phase 1b: Fetch only this class's students WITHOUT photo_url (base64
-    // photos can be several MB each and are the main cause of slow / timed-out
-    // loads on mobile).
+    const requestedDate = typeof req.query.date === 'string' ? req.query.date : getJakartaTodayDateString();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
+      return res.status(400).json({ error: 'Format tanggal ringkasan tidak valid' });
+    }
+    const matchingKelasValues = await getMatchingKelasValues(kelasWali);
+    const today = requestedDate;
     const studentRes = matchingKelasValues.length > 0
       ? await pool.query(
-          'SELECT id, username, name, kelas, email, whatsapp, bio, quran_bookmark, jenis_kelamin FROM students WHERE kelas = ANY($1)',
-          [matchingKelasValues]
+          `SELECT id, name, kelas,
+                  daily.completed_activities,
+                  EXISTS (
+                    SELECT 1
+                    FROM haid_periods hp
+                    WHERE hp.student_id = students.id
+                      AND hp.start_date <= $1::date
+                      AND (hp.end_date IS NULL OR hp.end_date >= $1::date)
+                  ) AS is_haid_today
+             FROM students
+             LEFT JOIN daily_records daily
+               ON daily.student_id = students.id
+              AND daily.record_date = $1::date
+            WHERE students.kelas = ANY($2::text[])
+            ORDER BY students.name`,
+          [today, matchingKelasValues]
         )
       : { rows: [] as any[] };
 
-    const classStudentIds: string[] = [];
-    const classStudentRows: typeof studentRes.rows = [];
+    const totalActivities = getEffectiveTotalActivities(dateFromKey(today));
+    const studentSummaries: Record<string, StudentDashboardSummary> = {};
     for (const row of studentRes.rows) {
-      classStudentIds.push(row.id);
-      classStudentRows.push(row);
-    }
-
-    // Phase 2: Fetch only records/haid for this class's students, plus blp_periods.
-    // Using ANY($1) keeps a single round-trip and avoids a full-table scan.
-    const noRows = { rows: [] as any[] };
-    const [recordsRes, periodsRes, haidRes] = await Promise.all([
-      classStudentIds.length > 0
-        ? pool.query(
-            'SELECT student_id, record_date, completed_activities, score, submissions FROM daily_records WHERE student_id = ANY($1)',
-            [classStudentIds]
-          )
-        : Promise.resolve(noRows),
-      pool.query('SELECT kelas, year, month, start_day, end_day FROM blp_periods'),
-      classStudentIds.length > 0
-        ? pool.query(
-            'SELECT id, student_id, start_date, end_date FROM haid_periods WHERE student_id = ANY($1) ORDER BY start_date DESC',
-            [classStudentIds]
-          )
-        : Promise.resolve(noRows),
-    ]);
-
-    // Group records by student_id
-    const recordsByStudent: Record<string, Record<string, DailyRecord>> = {};
-    for (const r of recordsRes.rows) {
-      const dateKey = r.record_date.toISOString().slice(0, 10);
-      if (!recordsByStudent[r.student_id]) recordsByStudent[r.student_id] = {};
-      recordsByStudent[r.student_id][dateKey] = {
-        date: dateKey,
-        completedActivities: r.completed_activities || [],
-        score: r.score,
-        submissions: r.submissions || {},
-      };
-    }
-
-    // Group haid periods by student_id
-    const haidByStudent: Record<string, HaidPeriod[]> = {};
-    for (const r of haidRes.rows) {
-      if (!haidByStudent[r.student_id]) haidByStudent[r.student_id] = [];
-      haidByStudent[r.student_id].push({
-        id: r.id,
-        startDate: r.start_date.toISOString().slice(0, 10),
-        endDate: r.end_date ? r.end_date.toISOString().slice(0, 10) : null,
-      });
-    }
-
-    // Build students map — photoUrl is intentionally omitted here.
-    // The frontend fetches it lazily via GET /api/students/:id/photo.
-    const students: SystemData['students'] = {};
-    for (const row of classStudentRows) {
-      const student: UserProgress = {
+      const completedActivities = Array.isArray(row.completed_activities) ? row.completed_activities : [];
+      const haidPeriods: HaidPeriod[] = row.is_haid_today
+        ? [{ id: -1, startDate: today, endDate: null }]
+        : [];
+      const completedCount = getEffectiveCompletedCount(
+        dateFromKey(today),
+        completedActivities,
+        haidPeriods,
+      );
+      studentSummaries[row.id] = {
         id: row.id,
-        username: row.username,
         name: row.name,
         kelas: normalizeKelas(row.kelas),
-        email: row.email,
-        whatsapp: row.whatsapp,
-        photoUrl: null, // loaded on-demand; see /api/students/:id/photo
-        bio: row.bio,
-        quranBookmark: row.quran_bookmark || null,
-        jenisKelamin: row.jenis_kelamin || null,
-        haidPeriods: haidByStudent[row.id] || [],
-        records: recordsByStudent[row.id] || {},
+        today: {
+          date: today,
+          completedCount,
+          totalActivities,
+          percentage: totalActivities > 0 ? Math.round((completedCount / totalActivities) * 100) : 0,
+          hasRecord: completedActivities.length > 0,
+        },
       };
-      students[student.id] = student;
     }
 
-    // Filter blpPeriods to this class only
+    // Only the logged-in guru's class periods are needed for the initial view.
     const blpPeriods: SystemData['blpPeriods'] = {};
+    const periodsRes = await pool.query('SELECT kelas, year, month, start_day, end_day FROM blp_periods');
     for (const row of periodsRes.rows) {
       if (normalizeKelas(row.kelas) !== kelasWali) continue;
       blpPeriods[blpPeriodKey(normalizeKelas(row.kelas), row.year, row.month)] = {
@@ -384,10 +372,188 @@ app.get('/api/me/dashboard-data', async (req, res) => {
       };
     }
 
-    return res.json({ students, gurus: { [guru.id]: guru }, blpPeriods });
+    return res.json({
+      students: {},
+      studentSummaries,
+      studentSummaryDate: today,
+      gurus: { [guru.id]: guru },
+      blpPeriods,
+    });
   } catch (err) {
     console.error('Failed to load dashboard data', err);
     res.status(500).json({ error: 'Gagal memuat data dashboard' });
+  }
+});
+
+// Guru: fetch one student's complete profile and history only after the guru
+// opens that student from the dashboard.
+app.get('/api/guru/students/:id', requireAuth('guru'), async (req, res) => {
+  try {
+    const guru = await loadGuru(req.session.userId!);
+    if (!guru) return res.status(403).json({ error: 'Akses ditolak' });
+
+    const accessRes = await pool.query('SELECT kelas FROM students WHERE id = $1', [req.params.id]);
+    if (accessRes.rowCount === 0) return res.status(404).json({ error: 'Siswa tidak ditemukan' });
+    if (!guru.kelasWali.includes(normalizeKelas(accessRes.rows[0].kelas))) {
+      return res.status(403).json({ error: 'Anda tidak memiliki akses ke data siswa ini' });
+    }
+
+    const student = await loadStudent(req.params.id);
+    if (!student) return res.status(404).json({ error: 'Siswa tidak ditemukan' });
+    return res.json(student);
+  } catch (err) {
+    console.error('Failed to load guru student detail', err);
+    return res.status(500).json({ error: 'Gagal memuat detail siswa' });
+  }
+});
+
+// Guru: return only monthly aggregate values for the recap table. The raw
+// daily records remain server-side until a specific student is opened/exported.
+app.get('/api/guru/recap/:year/:month', requireAuth('guru'), async (req, res) => {
+  try {
+    const year = Number(req.params.year);
+    const month = Number(req.params.month);
+    if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+      return res.status(400).json({ error: 'Tahun atau bulan tidak valid' });
+    }
+
+    const guru = await loadGuru(req.session.userId!);
+    if (!guru) return res.status(403).json({ error: 'Akses ditolak' });
+    const matchingKelasValues = await getMatchingKelasValues(guru.kelasWali[0]);
+    if (matchingKelasValues.length === 0) return res.json({ recap: {} });
+
+    const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const monthEndExclusive = `${month === 12 ? year + 1 : year}-${String(nextMonth).padStart(2, '0')}-01`;
+    const [studentRes, recordsRes, periodsRes, haidRes] = await Promise.all([
+      pool.query(
+        'SELECT id, name, kelas FROM students WHERE kelas = ANY($1::text[])',
+        [matchingKelasValues]
+      ),
+      pool.query(
+        `SELECT student_id, record_date, completed_activities
+           FROM daily_records
+          WHERE student_id IN (
+            SELECT id FROM students WHERE kelas = ANY($1::text[])
+          )
+            AND record_date >= $2::date
+            AND record_date < $3::date`,
+        [matchingKelasValues, monthStart, monthEndExclusive]
+      ),
+      pool.query('SELECT kelas, year, month, start_day, end_day FROM blp_periods'),
+      pool.query(
+        `SELECT id, student_id, start_date, end_date
+           FROM haid_periods
+          WHERE student_id IN (
+            SELECT id FROM students WHERE kelas = ANY($1::text[])
+          )
+            AND start_date < $2::date
+            AND (end_date IS NULL OR end_date >= $3::date)
+          ORDER BY start_date DESC`,
+        [matchingKelasValues, monthEndExclusive, monthStart]
+      ),
+    ]);
+
+    const studentById = new Map<string, { kelas: string }>(
+      studentRes.rows.map(row => [row.id, { kelas: normalizeKelas(row.kelas) }])
+    );
+    const haidByStudent: Record<string, HaidPeriod[]> = {};
+    for (const row of haidRes.rows) {
+      if (!haidByStudent[row.student_id]) haidByStudent[row.student_id] = [];
+      haidByStudent[row.student_id].push({
+        id: row.id,
+        startDate: dateKeyFromDb(row.start_date),
+        endDate: row.end_date ? dateKeyFromDb(row.end_date) : null,
+      });
+    }
+
+    const blpPeriods: SystemData['blpPeriods'] = {};
+    for (const row of periodsRes.rows) {
+      if (normalizeKelas(row.kelas) !== guru.kelasWali[0]) continue;
+      blpPeriods[blpPeriodKey(normalizeKelas(row.kelas), row.year, row.month)] = {
+        startDay: row.start_day,
+        endDay: row.end_day,
+      };
+    }
+
+    const totals: Record<string, { totalScore: number; scoredDays: number }> = {};
+    for (const row of recordsRes.rows) {
+      const student = studentById.get(row.student_id);
+      if (!student) continue;
+      const dateKey = dateKeyFromDb(row.record_date);
+      const day = dateFromKey(dateKey);
+      if (!isDateCountedForRecap(day, student.kelas, blpPeriods)) continue;
+      const totalActivities = getEffectiveTotalActivities(day);
+      const completedCount = getEffectiveCompletedCount(
+        day,
+        Array.isArray(row.completed_activities) ? row.completed_activities : [],
+        haidByStudent[row.student_id] || [],
+      );
+      if (!totals[row.student_id]) totals[row.student_id] = { totalScore: 0, scoredDays: 0 };
+      totals[row.student_id].totalScore += Math.round((completedCount / totalActivities) * 100);
+      totals[row.student_id].scoredDays++;
+    }
+
+    const recap: Record<string, StudentRecapSummary> = {};
+    for (const row of studentRes.rows) {
+      const total = totals[row.id];
+      recap[row.id] = {
+        average: total && total.scoredDays > 0 ? total.totalScore / total.scoredDays : null,
+        scoredDays: total?.scoredDays || 0,
+      };
+    }
+    return res.json({ recap });
+  } catch (err) {
+    console.error('Failed to load guru recap', err);
+    return res.status(500).json({ error: 'Gagal memuat rekap nilai' });
+  }
+});
+
+// Guru: load only the fields needed by the haid monitoring view. This is
+// requested when that view is opened, not during login.
+app.get('/api/guru/haid-summary', requireAuth('guru'), async (req, res) => {
+  try {
+    const guru = await loadGuru(req.session.userId!);
+    if (!guru) return res.status(403).json({ error: 'Akses ditolak' });
+    const matchingKelasValues = await getMatchingKelasValues(guru.kelasWali[0]);
+    if (matchingKelasValues.length === 0) return res.json({ students: [] });
+
+    const result = await pool.query(
+      `SELECT s.id, s.name, s.kelas, s.jenis_kelamin,
+              hp.id AS haid_id, hp.start_date, hp.end_date
+         FROM students s
+         LEFT JOIN haid_periods hp ON hp.student_id = s.id
+        WHERE s.kelas = ANY($1::text[])
+        ORDER BY s.name, hp.start_date DESC`,
+      [matchingKelasValues]
+    );
+
+    const studentsById = new Map<string, StudentHaidSummary>();
+    for (const row of result.rows) {
+      let student = studentsById.get(row.id);
+      if (!student) {
+        student = {
+          id: row.id,
+          name: row.name,
+          kelas: normalizeKelas(row.kelas),
+          jenisKelamin: row.jenis_kelamin || null,
+          haidPeriods: [],
+        };
+        studentsById.set(row.id, student);
+      }
+      if (row.haid_id !== null) {
+        student.haidPeriods.push({
+          id: row.haid_id,
+          startDate: dateKeyFromDb(row.start_date),
+          endDate: row.end_date ? dateKeyFromDb(row.end_date) : null,
+        });
+      }
+    }
+
+    return res.json({ students: [...studentsById.values()] });
+  } catch (err) {
+    console.error('Failed to load guru haid summary', err);
+    return res.status(500).json({ error: 'Gagal memuat data haid' });
   }
 });
 

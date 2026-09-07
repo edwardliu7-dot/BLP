@@ -1,5 +1,16 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { AuthState, SystemData, DailyRecord, UserProgress, GuruProfile, QuranBookmark, HaidPeriod, BlpPeriod } from './types';
+import {
+  AuthState,
+  SystemData,
+  DailyRecord,
+  UserProgress,
+  GuruProfile,
+  QuranBookmark,
+  HaidPeriod,
+  BlpPeriod,
+  StudentRecapSummary,
+  StudentHaidSummary,
+} from './types';
 import Login from './components/Login';
 import LoadingScreen from './components/LoadingScreen';
 
@@ -34,6 +45,47 @@ export default function App() {
     const res = await fetch('/api/me/dashboard-data');
     if (!res.ok) throw Object.assign(new Error('fetch failed'), { status: res.status });
     return res.json();
+  }, []);
+
+  const fetchGuruStudent = useCallback(async (studentId: string): Promise<UserProgress> => {
+    const res = await fetch(`/api/guru/students/${encodeURIComponent(studentId)}`);
+    if (!res.ok) throw new Error('Gagal memuat detail siswa');
+    const student: UserProgress = await res.json();
+    setSystemData(prev => ({
+      ...prev,
+      students: { ...prev.students, [student.id]: student },
+    }));
+    return student;
+  }, []);
+
+  const fetchGuruSummaryForDate = useCallback(async (date: Date): Promise<void> => {
+    const dateKey = [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-');
+    const res = await fetch(`/api/me/dashboard-data?date=${encodeURIComponent(dateKey)}`);
+    if (!res.ok) throw new Error('Gagal memuat ringkasan tanggal');
+    const data: SystemData = await res.json();
+    setSystemData(prev => ({
+      ...prev,
+      studentSummaries: data.studentSummaries,
+      studentSummaryDate: data.studentSummaryDate,
+    }));
+  }, []);
+
+  const fetchGuruRecap = useCallback(async (date: Date): Promise<Record<string, StudentRecapSummary>> => {
+    const res = await fetch(`/api/guru/recap/${date.getFullYear()}/${date.getMonth() + 1}`);
+    if (!res.ok) throw new Error('Gagal memuat rekap nilai');
+    const data: { recap: Record<string, StudentRecapSummary> } = await res.json();
+    return data.recap;
+  }, []);
+
+  const fetchGuruHaidSummary = useCallback(async (): Promise<StudentHaidSummary[]> => {
+    const res = await fetch('/api/guru/haid-summary');
+    if (!res.ok) throw new Error('Gagal memuat data haid');
+    const data: { students: StudentHaidSummary[] } = await res.json();
+    return data.students;
   }, []);
 
   useEffect(() => {
@@ -260,7 +312,9 @@ export default function App() {
     }
     setSystemData(prev => {
       const { [studentId]: _removed, ...rest } = prev.students;
-      return { ...prev, students: rest };
+      const summaries = { ...(prev.studentSummaries || {}) };
+      delete summaries[studentId];
+      return { ...prev, students: rest, studentSummaries: summaries };
     });
   };
 
@@ -405,6 +459,10 @@ export default function App() {
            onThemeChange={handleThemeChange}
           onLogout={handleLogout}
           onUpdateProfile={handleUpdateGuruProfile}
+          onLoadStudent={fetchGuruStudent}
+          onLoadSummaryForDate={fetchGuruSummaryForDate}
+          onLoadRecap={fetchGuruRecap}
+          onLoadHaidSummary={fetchGuruHaidSummary}
           onDeleteStudent={handleDeleteStudent}
           onReviewSubmission={handleReviewSubmission}
           onSaveBlpPeriod={handleSaveBlpPeriod}

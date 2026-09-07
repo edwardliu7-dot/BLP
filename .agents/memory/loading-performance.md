@@ -12,8 +12,13 @@ Never fetch server data before the login page is visible. All data fetching happ
 
 **How to apply:**
 - Login page (`src/components/Login.tsx`) requires zero server calls to render. `App.tsx` sets status → `'login'` from localStorage check (synchronous) with no await.
-- After login, `handleLogin` in `App.tsx` calls `GET /api/me/dashboard-data` (session-auth'd). For siswa: returns only their record + their kelas blpPeriods. For guru: returns only their class's students + blpPeriods.
+- After login, `handleLogin` in `App.tsx` calls `GET /api/me/dashboard-data` (session-auth'd). For siswa: returns only their profile + kelas blpPeriods. For guru: returns only names/classes and the selected day's percentage summary; full student records are loaded only after a student is opened.
 - The old `/api/system-data` endpoint is kept for backward compat but is no longer called by the frontend.
+
+Guru-specific lazy loading:
+- `GET /api/guru/students/:id` returns one student's full profile, records, and haid periods after a name is clicked.
+- Recap and haid navigation use aggregate/specialized endpoints only when those views are opened; they do not populate the main student store with full records.
+- Student list avatars use initials; photo/contact data is only requested/rendered from the loaded detail.
 
 ## Bundle splitting
 - `SiswaDashboard` and `GuruDashboard` are `React.lazy` imports — a student never downloads teacher code.
