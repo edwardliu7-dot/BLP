@@ -18,6 +18,7 @@ import {
   PenLine,
   ListChecks,
   Settings2,
+  ClipboardCheck,
   Search,
   Bell,
   TrendingUp,
@@ -58,6 +59,8 @@ import ProfileModal from './modals/ProfileModal';
 import ConfirmModal from './modals/ConfirmModal';
 import GuruReviewSubmissionModal from './modals/GuruReviewSubmissionModal';
 import BlpPeriodModal from './modals/BlpPeriodModal';
+import GuruBlpDashboard from './GuruBlpDashboard';
+import GuruMonitoringDashboard from './GuruMonitoringDashboard';
 
 const QURAN_ACTIVITY_ID = 'd5';
 const CURRENT_QURAN_ACTIVITY_ID = 'v20260901-rs4';
@@ -140,6 +143,7 @@ interface GuruDashboardProps {
   onDeleteStudent: (studentId: string) => Promise<void>;
   onReviewSubmission: (studentId: string, dateKey: string, activityId: string) => Promise<void>;
   onSaveBlpPeriod: (kelas: string, year: number, month: number, startDay: number, endDay: number) => Promise<void>;
+  onUpdateGuruRecord: (date: Date, record: DailyRecord) => Promise<void>;
 }
 
 function scoreColor(s: number) {
@@ -227,8 +231,13 @@ export default function GuruDashboard({
   onDeleteStudent,
   onReviewSubmission,
   onSaveBlpPeriod,
+  onUpdateGuruRecord,
 }: GuruDashboardProps) {
-  const [view, setView] = useState<'list' | 'detail' | 'presentation' | 'recap' | 'haid' | 'settings'>('list');
+  const guru = auth.userId ? systemData.gurus[auth.userId] : null;
+  const isWaliKelas = guru?.isWaliKelas ?? auth.isWaliKelas ?? false;
+  const canMonitorGuru = guru?.canMonitorGuru ?? auth.canMonitorGuru ?? false;
+  const initialView = canMonitorGuru && !isWaliKelas ? 'monitoring' : isWaliKelas ? 'list' : 'guru-blp';
+  const [view, setView] = useState<'list' | 'detail' | 'presentation' | 'recap' | 'haid' | 'settings' | 'guru-blp' | 'monitoring'>(initialView);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -242,8 +251,6 @@ export default function GuruDashboard({
   const [recapLoading, setRecapLoading] = useState(false);
   const [haidStudents, setHaidStudents] = useState<StudentHaidSummary[]>([]);
   const [haidLoading, setHaidLoading] = useState(false);
-  const guru = auth.userId ? systemData.gurus[auth.userId] : null;
-
   const allowedClasses = auth.kelasWali || [];
   const allStudents: StudentDashboardSummary[] = Object.values(systemData.studentSummaries || {})
     .filter(s => allowedClasses.includes(s.kelas))
@@ -347,10 +354,18 @@ export default function GuruDashboard({
   }, [view, onLoadHaidSummary]);
 
   const navItems: NavItem[] = [
-    { label: 'Daftar Siswa', icon: <Users size={16} />,      onClick: () => setView('list'),  isActive: view === 'list' || view === 'detail' || view === 'presentation' },
-    { label: 'Rekap Nilai',  icon: <BarChart3 size={16} />,  onClick: () => setView('recap'), isActive: view === 'recap' },
-    { label: 'Haid Siswi',   icon: <Heart size={16} />,      onClick: () => setView('haid'),  isActive: view === 'haid' },
-    { label: 'Pengaturan',   icon: <Settings2 size={16} />,  onClick: () => setView('settings'), isActive: view === 'settings' },
+    ...(isWaliKelas ? [
+      { label: 'Daftar Siswa', icon: <Users size={16} />, onClick: () => setView('list'), isActive: view === 'list' || view === 'detail' || view === 'presentation' },
+      { label: 'Rekap Nilai', icon: <BarChart3 size={16} />, onClick: () => setView('recap'), isActive: view === 'recap' },
+      { label: 'Haid Siswi', icon: <Heart size={16} />, onClick: () => setView('haid'), isActive: view === 'haid' },
+    ] : []),
+    { label: 'Pengisian BLP', icon: <ClipboardCheck size={16} />, onClick: () => setView('guru-blp'), isActive: view === 'guru-blp' },
+    ...(canMonitorGuru ? [
+      { label: 'Monitoring Guru', icon: <BarChart3 size={16} />, onClick: () => setView('monitoring'), isActive: view === 'monitoring' },
+    ] : []),
+    ...(isWaliKelas || canMonitorGuru ? [
+      { label: 'Pengaturan', icon: <Settings2 size={16} />, onClick: () => setView('settings'), isActive: view === 'settings' },
+    ] : []),
   ];
 
   const headerActions = (
@@ -425,6 +440,26 @@ export default function GuruDashboard({
       </button>
     </div>
   );
+
+  if (view === 'guru-blp') {
+    return (
+      <PageLayout navItems={navItems} actions={headerActions}>
+        <GuruBlpDashboard
+          guruName={guru?.name || auth.name || 'Guru'}
+          records={systemData.guruRecords || {}}
+          onUpdateRecord={onUpdateGuruRecord}
+        />
+      </PageLayout>
+    );
+  }
+
+  if (view === 'monitoring') {
+    return (
+      <PageLayout navItems={navItems} actions={headerActions}>
+        <GuruMonitoringDashboard entries={systemData.guruMonitoring || []} />
+      </PageLayout>
+    );
+  }
 
   if (view === 'settings') {
     return (

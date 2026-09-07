@@ -39,6 +39,16 @@ CREATE TABLE IF NOT EXISTS daily_records (
   PRIMARY KEY (student_id, record_date)
 );
 
+CREATE TABLE IF NOT EXISTS guru_daily_records (
+  guru_id text NOT NULL REFERENCES gurus(id) ON DELETE CASCADE,
+  record_date date NOT NULL,
+  completed_activities text[] NOT NULL DEFAULT '{}',
+  score integer,
+  submissions jsonb NOT NULL DEFAULT '{}',
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (guru_id, record_date)
+);
+
 CREATE TABLE IF NOT EXISTS nilai (
   id serial PRIMARY KEY,
   student_id text NOT NULL REFERENCES students(id) ON DELETE CASCADE,

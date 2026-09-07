@@ -105,12 +105,20 @@ export interface GuruProfile {
   username: string;
   name: string;
   // The class(es) this guru is the *wali kelas* (homeroom teacher) for — not
-  // the classes they teach a subject in. Only wali kelas may log into BLP,
-  // and their student data access is scoped to this, not "kelas diampu".
+  // the classes they teach a subject in. Student data access is scoped to
+  // this, not "kelas diampu".
   kelasWali: string[];
+  jabatan: string[];
+  isWaliKelas: boolean;
+  canMonitorGuru: boolean;
   password?: string;
   photoUrl?: string | null;
   bio?: string | null;
+}
+
+export interface GuruMonitoringEntry {
+  guru: GuruProfile;
+  records: Record<string, DailyRecord>;
 }
 
 export interface BlpPeriod {
@@ -124,6 +132,8 @@ export interface SystemData {
   blpPeriods: Record<string, BlpPeriod>; // key: `${kelas}__${year}-${month}`
   studentSummaries?: Record<string, StudentDashboardSummary>;
   studentSummaryDate?: string;
+  guruRecords?: Record<string, DailyRecord>;
+  guruMonitoring?: GuruMonitoringEntry[];
 }
 
 export type Role = 'siswa' | 'guru' | null;
@@ -134,4 +144,7 @@ export interface AuthState {
   name?: string;
   kelas?: string;
   kelasWali?: string[];
+  jabatan?: string[];
+  isWaliKelas?: boolean;
+  canMonitorGuru?: boolean;
 }

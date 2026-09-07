@@ -15,6 +15,7 @@ import type {
 } from '../src/types';
 import { KELAS_OPTIONS } from '../src/types';
 import { getEffectiveCompletedCount, getEffectiveTotalActivities, isDateCountedForRecap } from '../src/utils/blpScoring';
+import { GURU_BLP_ACTIVITY_IDS } from '../src/data/guruActivities';
 
 declare module 'express-session' {
   interface SessionData {
@@ -175,11 +176,59 @@ function normalizeKelas(kelas: string): string {
   return KELAS_CANONICAL_BY_KEY[kelasMatchKey(kelas)] || kelas;
 }
 
-// Only a wali kelas (homeroom teacher) may use BLP, and their access is scoped
-// to the class they are wali kelas *for* (wali_kelas_kelas), never to the
-// subject classes they teach (kelas_diampu) — that scoping is "tomat"'s job.
+// Student access is still limited to a wali kelas's own homeroom class. A
+// regular guru may use the separate teacher checklist, but must never inherit
+// student access merely because they can log in.
 function isWaliKelas(row: { jabatan: string[] | null; wali_kelas_kelas: string | null }): boolean {
-  return !!(row.jabatan || []).includes('wali_kelas') && !!row.wali_kelas_kelas;
+  return (row.jabatan || []).some(jabatan =>
+    jabatan.toLowerCase().trim().replace(/[\s-]+/g, '_') === 'wali_kelas'
+  ) && !!row.wali_kelas_kelas;
+}
+
+function normalizedJabatan(jabatan: string): string {
+  return jabatan
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function canMonitorGuru(row: { jabatan: string[] | null }): boolean {
+  return (row.jabatan || []).some(jabatan => {
+    const value = normalizedJabatan(jabatan);
+    return [
+      'kepalasekolah',
+      'kepsek',
+      'wakasekkurikulum',
+      'wakakurikulum',
+      'wakilkepalasekolahbidangkurikulum',
+      'wakilkepalasekolahkurikulum',
+    ].includes(value);
+  });
+}
+
+function buildGuruProfile(row: {
+  id: string;
+  username: string;
+  name: string;
+  jabatan: string[] | null;
+  wali_kelas_kelas: string | null;
+  photo_url?: string | null;
+  bio?: string | null;
+}): GuruProfile {
+  const jabatan = Array.isArray(row.jabatan) ? row.jabatan : [];
+  const wali = isWaliKelas(row);
+  return {
+    id: row.id,
+    username: row.username,
+    name: row.name,
+    kelasWali: wali && row.wali_kelas_kelas ? [normalizeKelas(row.wali_kelas_kelas)] : [],
+    jabatan,
+    isWaliKelas: wali,
+    canMonitorGuru: canMonitorGuru(row),
+    photoUrl: row.photo_url ?? null,
+    bio: row.bio ?? null,
+  };
 }
 
 async function loadGuru(id: string): Promise<GuruProfile | null> {
@@ -188,16 +237,49 @@ async function loadGuru(id: string): Promise<GuruProfile | null> {
     [id]
   );
   if (res.rowCount === 0) return null;
-  const row = res.rows[0];
-  if (!isWaliKelas(row)) return null;
-  return {
-    id: row.id,
-    username: row.username,
-    name: row.name,
-    kelasWali: [normalizeKelas(row.wali_kelas_kelas)],
-    photoUrl: row.photo_url,
-    bio: row.bio,
-  };
+  return buildGuruProfile(res.rows[0]);
+}
+
+async function loadGuruRecords(guruId: string): Promise<Record<string, DailyRecord>> {
+  const result = await pool.query(
+    'SELECT record_date, completed_activities, score, submissions FROM guru_daily_records WHERE guru_id = $1 ORDER BY record_date',
+    [guruId]
+  );
+  const records: Record<string, DailyRecord> = {};
+  for (const row of result.rows) {
+    const dateKey = dateKeyFromDb(row.record_date);
+    records[dateKey] = {
+      date: dateKey,
+      completedActivities: Array.isArray(row.completed_activities) ? row.completed_activities : [],
+      score: row.score,
+      submissions: row.submissions || {},
+    };
+  }
+  return records;
+}
+
+async function loadGuruMonitoring(): Promise<NonNullable<SystemData['guruMonitoring']>> {
+  const [guruRes, recordsRes] = await Promise.all([
+    pool.query('SELECT id, username, name, jabatan, wali_kelas_kelas, photo_url, bio FROM gurus ORDER BY name'),
+    pool.query('SELECT guru_id, record_date, completed_activities, score, submissions FROM guru_daily_records ORDER BY record_date'),
+  ]);
+  const entries = new Map<string, NonNullable<SystemData['guruMonitoring']>[number]>();
+  for (const row of guruRes.rows) {
+    const guru = buildGuruProfile(row);
+    entries.set(guru.id, { guru, records: {} });
+  }
+  for (const row of recordsRes.rows) {
+    const entry = entries.get(row.guru_id);
+    if (!entry) continue;
+    const dateKey = dateKeyFromDb(row.record_date);
+    entry.records[dateKey] = {
+      date: dateKey,
+      completedActivities: Array.isArray(row.completed_activities) ? row.completed_activities : [],
+      score: row.score,
+      submissions: row.submissions || {},
+    };
+  }
+  return Array.from(entries.values());
 }
 
 function blpPeriodKey(kelas: string, year: number, month: number): string {
@@ -302,10 +384,23 @@ app.get('/api/me/dashboard-data', async (req, res) => {
       return res.json({ students: { [profile.student.id]: profile.student }, gurus: {}, blpPeriods: profile.blpPeriods });
     }
 
-    // Guru — return only the compact dashboard summary. Full student data is
-    // loaded by GET /api/guru/students/:id after the teacher opens a student.
+    // Guru — every guru gets their own checklist. Student summaries and
+    // homeroom controls are added only for wali kelas; monitoring is added
+    // only for kepala sekolah / wakasek kurikulum.
     const guru = await loadGuru(req.session.userId);
-    if (!guru) return res.status(403).json({ error: 'Hanya wali kelas yang dapat mengakses ini' });
+    if (!guru) return res.status(403).json({ error: 'Akun guru tidak ditemukan' });
+    const guruRecords = await loadGuruRecords(guru.id);
+    const guruMonitoring = guru.canMonitorGuru ? await loadGuruMonitoring() : undefined;
+
+    if (!guru.isWaliKelas) {
+      return res.json({
+        students: {},
+        gurus: { [guru.id]: guru },
+        blpPeriods: {},
+        guruRecords,
+        guruMonitoring,
+      });
+    }
 
     const kelasWali = guru.kelasWali[0];
     const requestedDate = typeof req.query.date === 'string' ? req.query.date : getJakartaTodayDateString();
@@ -378,6 +473,8 @@ app.get('/api/me/dashboard-data', async (req, res) => {
       studentSummaryDate: today,
       gurus: { [guru.id]: guru },
       blpPeriods,
+      guruRecords,
+      guruMonitoring,
     });
   } catch (err) {
     console.error('Failed to load dashboard data', err);
@@ -390,7 +487,7 @@ app.get('/api/me/dashboard-data', async (req, res) => {
 app.get('/api/guru/students/:id', requireAuth('guru'), async (req, res) => {
   try {
     const guru = await loadGuru(req.session.userId!);
-    if (!guru) return res.status(403).json({ error: 'Akses ditolak' });
+    if (!guru || !guru.isWaliKelas) return res.status(403).json({ error: 'Akses data siswa ditolak' });
 
     const accessRes = await pool.query('SELECT kelas FROM students WHERE id = $1', [req.params.id]);
     if (accessRes.rowCount === 0) return res.status(404).json({ error: 'Siswa tidak ditemukan' });
@@ -418,7 +515,7 @@ app.get('/api/guru/recap/:year/:month', requireAuth('guru'), async (req, res) =>
     }
 
     const guru = await loadGuru(req.session.userId!);
-    if (!guru) return res.status(403).json({ error: 'Akses ditolak' });
+    if (!guru || !guru.isWaliKelas) return res.status(403).json({ error: 'Akses rekap siswa ditolak' });
     const matchingKelasValues = await getMatchingKelasValues(guru.kelasWali[0]);
     if (matchingKelasValues.length === 0) return res.json({ recap: {} });
 
@@ -514,7 +611,7 @@ app.get('/api/guru/recap/:year/:month', requireAuth('guru'), async (req, res) =>
 app.get('/api/guru/haid-summary', requireAuth('guru'), async (req, res) => {
   try {
     const guru = await loadGuru(req.session.userId!);
-    if (!guru) return res.status(403).json({ error: 'Akses ditolak' });
+    if (!guru || !guru.isWaliKelas) return res.status(403).json({ error: 'Akses data haid siswa ditolak' });
     const matchingKelasValues = await getMatchingKelasValues(guru.kelasWali[0]);
     if (matchingKelasValues.length === 0) return res.json({ students: [] });
 
@@ -605,18 +702,11 @@ app.get('/api/system-data', async (_req, res) => {
       students[student.id] = student;
     }
 
-    // Assemble guru map (wali kelas only)
+    // Assemble all guru profiles; student routes still enforce wali access
+    // separately, while this endpoint is used for authenticated app bootstrap.
     const gurus: SystemData['gurus'] = {};
     for (const row of guruRes.rows) {
-      if (!isWaliKelas(row)) continue;
-      const guru: GuruProfile = {
-        id: row.id,
-        username: row.username,
-        name: row.name,
-        kelasWali: [normalizeKelas(row.wali_kelas_kelas)],
-        photoUrl: row.photo_url,
-        bio: row.bio,
-      };
+      const guru = buildGuruProfile(row);
       gurus[guru.id] = guru;
     }
 
@@ -646,7 +736,7 @@ app.put('/api/blp-periods', requireAuth('guru'), async (req, res) => {
       return res.status(400).json({ error: 'Data rentang tanggal aktif BLP tidak valid' });
     }
     const guru = await loadGuru(req.session.userId!);
-    if (!guru) {
+    if (!guru || !guru.isWaliKelas) {
       return res.status(404).json({ error: 'Akun guru tidak ditemukan' });
     }
     const targetKelas = normalizeKelas(kelas);
@@ -704,27 +794,28 @@ app.post('/api/login/guru', async (req, res) => {
     const id = toId(String(username || ''));
     // Fetch password + wali kelas check fields in one query (was two round-trips).
     const userRes = await pool.query(
-      'SELECT password, name, jabatan, wali_kelas_kelas FROM gurus WHERE id = $1',
+      'SELECT username, password, name, jabatan, wali_kelas_kelas, photo_url, bio FROM gurus WHERE id = $1',
       [id]
     );
     if (userRes.rowCount === 0) {
-      return res.status(404).json({ error: 'Username Anda belum terdaftar sebagai wali kelas. Silakan hubungi admin.' });
+      return res.status(404).json({ error: 'Username Anda belum terdaftar sebagai guru. Silakan hubungi admin.' });
     }
     const ok = await verifyPassword(String(password || ''), userRes.rows[0].password);
     if (!ok) {
       return res.status(401).json({ error: 'Password salah!' });
     }
-    // BLP is only for wali kelas (homeroom teachers) — a guru who only
-    // teaches a subject (kelas_diampu, used by the "tomat" app) but is not
-    // wali kelas for any class must not be able to log in here.
     const row = userRes.rows[0];
-    if (!isWaliKelas(row)) {
-      return res.status(403).json({ error: 'Hanya wali kelas yang dapat login di aplikasi BLP. Akun Anda bukan wali kelas.' });
-    }
     req.session.userId = id;
     req.session.role = 'guru';
-    // Return only what the client uses; dashboard data loaded via /api/me/dashboard-data.
-    res.json({ id, name: row.name, kelasWali: [normalizeKelas(row.wali_kelas_kelas)] });
+    const guru = buildGuruProfile({ id, ...row });
+    res.json({
+      id,
+      name: guru.name,
+      kelasWali: guru.kelasWali,
+      jabatan: guru.jabatan,
+      isWaliKelas: guru.isWaliKelas,
+      canMonitorGuru: guru.canMonitorGuru,
+    });
   } catch (err) {
     console.error('Failed to login guru', err);
     res.status(500).json({ error: 'Gagal login' });
@@ -776,8 +867,16 @@ app.get('/api/auth/me', async (req, res) => {
     }
     if (req.session.role === 'guru') {
       const guru = await loadGuru(req.session.userId);
-      if (!guru) return res.status(403).json({ error: 'Not a wali kelas' });
-      return res.json({ role: 'guru', userId: guru.id, name: guru.name, kelasWali: guru.kelasWali });
+      if (!guru) return res.status(403).json({ error: 'Akun guru tidak ditemukan' });
+      return res.json({
+        role: 'guru',
+        userId: guru.id,
+        name: guru.name,
+        kelasWali: guru.kelasWali,
+        jabatan: guru.jabatan,
+        isWaliKelas: guru.isWaliKelas,
+        canMonitorGuru: guru.canMonitorGuru,
+      });
     } else {
       const profile = await buildSiswaProfileResponse(req.session.userId);
       if (!profile) return res.status(404).json({ error: 'Student not found' });
@@ -786,6 +885,48 @@ app.get('/api/auth/me', async (req, res) => {
   } catch (err) {
     console.error('Failed to fetch auth/me', err);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Guru: save the separate teacher BLP checklist for today only.
+app.put('/api/guru/records/:date', requireAuth('guru'), async (req, res) => {
+  try {
+    const { date } = req.params;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Format tanggal tidak valid' });
+    }
+    if (date !== getJakartaTodayDateString()) {
+      return res.status(400).json({ error: 'Pengisian BLP guru hanya dapat dilakukan untuk hari ini' });
+    }
+    const guru = await loadGuru(req.session.userId!);
+    if (!guru) return res.status(403).json({ error: 'Akun guru tidak ditemukan' });
+
+    const requestedActivities = req.body?.completedActivities;
+    if (!Array.isArray(requestedActivities) || requestedActivities.some((id: unknown) => typeof id !== 'string')) {
+      return res.status(400).json({ error: 'Daftar kegiatan BLP guru tidak valid' });
+    }
+    const completedActivities = Array.from(new Set(requestedActivities))
+      .filter(activityId => GURU_BLP_ACTIVITY_IDS.includes(activityId));
+    const record = {
+      date,
+      completedActivities,
+      score: Math.round((completedActivities.length / GURU_BLP_ACTIVITY_IDS.length) * 100),
+      submissions: {},
+    };
+    await pool.query(
+      `INSERT INTO guru_daily_records
+         (guru_id, record_date, completed_activities, score, submissions, updated_at)
+       VALUES ($1, $2::date, $3::text[], $4, '{}'::jsonb, now())
+       ON CONFLICT (guru_id, record_date)
+       DO UPDATE SET completed_activities = EXCLUDED.completed_activities,
+                     score = EXCLUDED.score,
+                     updated_at = now()`,
+      [guru.id, date, completedActivities, record.score]
+    );
+    return res.json(record);
+  } catch (err) {
+    console.error('Failed to save guru BLP record', err);
+    return res.status(500).json({ error: 'Gagal menyimpan BLP guru' });
   }
 });
 
@@ -1005,7 +1146,7 @@ app.put('/api/gurus/:id/profile', requireAuth('guru', 'id'), async (req, res) =>
 app.get('/api/students/:id/photo', requireAuth('guru'), async (req, res) => {
   try {
     const guru = await loadGuru(req.session.userId!);
-    if (!guru) return res.status(403).json({ error: 'Akses ditolak' });
+    if (!guru || !guru.isWaliKelas) return res.status(403).json({ error: 'Akses foto siswa ditolak' });
 
     const result = await pool.query(
       'SELECT photo_url, kelas FROM students WHERE id = $1',
@@ -1032,7 +1173,7 @@ app.delete('/api/students/:id', requireAuth('guru'), async (req, res) => {
   try {
     const { id } = req.params;
     const guru = await loadGuru(req.session.userId!);
-    if (!guru) {
+    if (!guru || !guru.isWaliKelas) {
       return res.status(404).json({ error: 'Akun guru tidak ditemukan' });
     }
     const studentRes = await pool.query('SELECT id, kelas FROM students WHERE id = $1', [id]);
@@ -1074,7 +1215,7 @@ app.put('/api/students/:id/records/:date/submissions/:activityId/review', requir
   try {
     const { id, date, activityId } = req.params;
     const guru = await loadGuru(req.session.userId!);
-    if (!guru) {
+    if (!guru || !guru.isWaliKelas) {
       return res.status(404).json({ error: 'Akun guru tidak ditemukan' });
     }
     const studentRes = await pool.query('SELECT kelas FROM students WHERE id = $1', [id]);
@@ -1240,6 +1381,32 @@ async function ensureSchema() {
         EXECUTE 'CREATE INDEX IF NOT EXISTS idx_haid_periods_student_id ON haid_periods (student_id)';
       END IF;
     END $$
+  `);
+  // Teacher BLP records are deliberately separate from student daily_records.
+  // The shared gurus table is owned by EOB5guru, so skip this migration only
+  // if that source table has not been provisioned yet.
+  await pool.query(`
+    DO $$ BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'gurus' AND table_schema = 'public')
+         AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'guru_daily_records' AND table_schema = 'public') THEN
+        CREATE TABLE guru_daily_records (
+          guru_id text NOT NULL REFERENCES gurus(id) ON DELETE CASCADE,
+          record_date date NOT NULL,
+          completed_activities text[] NOT NULL DEFAULT '{}',
+          score integer,
+          submissions jsonb NOT NULL DEFAULT '{}',
+          updated_at timestamptz NOT NULL DEFAULT now(),
+          PRIMARY KEY (guru_id, record_date)
+        );
+      END IF;
+    END $$;
+  `);
+  await pool.query(`
+    DO $$ BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'guru_daily_records' AND table_schema = 'public') THEN
+        EXECUTE 'CREATE INDEX IF NOT EXISTS idx_guru_daily_records_date ON guru_daily_records (record_date)';
+      END IF;
+    END $$;
   `);
 }
 

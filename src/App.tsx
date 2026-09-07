@@ -123,10 +123,22 @@ export default function App() {
           });
           setAuth(parsed);
         } else {
-          // Guru: fetch full class data as before.
+          // Guru: fetch their checklist plus any role-specific dashboard data.
           const data = await fetchGuruDashboardData();
           setSystemData(data);
-          setAuth(parsed);
+          const profile = parsed.userId ? data.gurus[parsed.userId] : undefined;
+          const restoredAuth = profile
+            ? {
+                ...parsed,
+                name: profile.name,
+                kelasWali: profile.kelasWali,
+                jabatan: profile.jabatan,
+                isWaliKelas: profile.isWaliKelas,
+                canMonitorGuru: profile.canMonitorGuru,
+              }
+            : parsed;
+          setAuth(restoredAuth);
+          localStorage.setItem(AUTH_KEY, JSON.stringify(restoredAuth));
         }
         setStatus('ready');
       } catch {
@@ -304,6 +316,24 @@ export default function App() {
     }));
   };
 
+  const handleUpdateGuruRecord = async (date: Date, record: DailyRecord) => {
+    if (auth.role !== 'guru') return;
+    const res = await fetch(`/api/guru/records/${encodeURIComponent(record.date)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ completedActivities: record.completedActivities }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.error || 'Gagal menyimpan BLP guru');
+    }
+    const saved: DailyRecord = await res.json();
+    setSystemData(prev => ({
+      ...prev,
+      guruRecords: { ...(prev.guruRecords || {}), [saved.date]: saved },
+    }));
+  };
+
   const handleDeleteStudent = async (studentId: string) => {
     const res = await fetch(`/api/students/${encodeURIComponent(studentId)}`, { method: 'DELETE' });
     if (!res.ok) {
@@ -466,6 +496,7 @@ export default function App() {
           onDeleteStudent={handleDeleteStudent}
           onReviewSubmission={handleReviewSubmission}
           onSaveBlpPeriod={handleSaveBlpPeriod}
+           onUpdateGuruRecord={handleUpdateGuruRecord}
         />
       </Suspense>
     );

@@ -71,7 +71,15 @@ export default function Login({ onLogin }: LoginProps) {
         });
         if (!res.ok) { setErrorMsg(await parseErrorMessage(res, 'Gagal login')); return; }
         const guru = await res.json();
-        await onLogin({ role: 'guru', userId: guru.id, name: guru.name, kelasWali: guru.kelasWali });
+         await onLogin({
+           role: 'guru',
+           userId: guru.id,
+           name: guru.name,
+           kelasWali: guru.kelasWali,
+           jabatan: guru.jabatan,
+           isWaliKelas: guru.isWaliKelas,
+           canMonitorGuru: guru.canMonitorGuru,
+         });
       }
     } catch { setErrorMsg('Gagal terhubung ke server. Silakan coba lagi.'); }
     finally { setIsSubmitting(false); }
