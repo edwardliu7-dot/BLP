@@ -5,6 +5,7 @@ import {
   Check, ShieldCheck,
 } from 'lucide-react';
 import { AuthState } from '../types';
+import { ApiError, ensureApiSuccess } from '../utils/api';
 
 import type { UserProgress, BlpPeriod } from '../types';
 
@@ -41,10 +42,6 @@ export default function Login({ onLogin }: LoginProps) {
   const resetForm = () => { setUsername(''); setPassword(''); setErrorMsg(''); };
   const handleRoleSwitch = (newRole: 'siswa' | 'guru') => { setRole(newRole); resetForm(); };
 
-  const parseErrorMessage = async (res: Response, fallback: string) => {
-    try { const body = await res.json(); return body?.error || fallback; } catch { return fallback; }
-  };
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
@@ -56,7 +53,13 @@ export default function Login({ onLogin }: LoginProps) {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password }),
         });
-        if (!res.ok) { setErrorMsg(await parseErrorMessage(res, 'Username atau password salah. Silakan hubungi wali kelas Anda.')); return; }
+        try {
+          await ensureApiSuccess(res, 'Username atau password salah. Silakan hubungi wali kelas Anda.', 'login');
+        } catch (error) {
+          if (error instanceof ApiError) setErrorMsg(error.message);
+          else setErrorMsg('Gagal login. Silakan coba lagi.');
+          return;
+        }
         const data = await res.json();
         // Pass full profile data so App.tsx can show the dashboard immediately
         // without an extra round-trip for /api/me/dashboard-data.
@@ -69,7 +72,13 @@ export default function Login({ onLogin }: LoginProps) {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password }),
         });
-        if (!res.ok) { setErrorMsg(await parseErrorMessage(res, 'Gagal login')); return; }
+        try {
+          await ensureApiSuccess(res, 'Gagal login', 'login');
+        } catch (error) {
+          if (error instanceof ApiError) setErrorMsg(error.message);
+          else setErrorMsg('Gagal login. Silakan coba lagi.');
+          return;
+        }
         const guru = await res.json();
          await onLogin({
            role: 'guru',
@@ -81,7 +90,13 @@ export default function Login({ onLogin }: LoginProps) {
            canMonitorGuru: guru.canMonitorGuru,
          });
       }
-    } catch { setErrorMsg('Gagal terhubung ke server. Silakan coba lagi.'); }
+    } catch (error) {
+      if (error instanceof ApiError && error.stage === 'guru-dashboard') {
+        setErrorMsg(`Login berhasil, tetapi dashboard guru gagal dimuat: ${error.message}`);
+      } else {
+        setErrorMsg('Gagal terhubung ke server. Silakan coba lagi.');
+      }
+    }
     finally { setIsSubmitting(false); }
   };
 

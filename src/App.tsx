@@ -13,6 +13,7 @@ import {
 } from './types';
 import Login from './components/Login';
 import LoadingScreen from './components/LoadingScreen';
+import { ensureApiSuccess } from './utils/api';
 
 // Lazy-load dashboards so the login page bundle is tiny and each role only
 // downloads its own code.
@@ -43,7 +44,7 @@ export default function App() {
   // Siswa no longer calls this — profile is returned by login, records are lazy.
   const fetchGuruDashboardData = useCallback(async (): Promise<SystemData> => {
     const res = await fetch('/api/me/dashboard-data');
-    if (!res.ok) throw Object.assign(new Error('fetch failed'), { status: res.status });
+    await ensureApiSuccess(res, 'Gagal memuat data dashboard guru', 'guru-dashboard');
     return res.json();
   }, []);
 
