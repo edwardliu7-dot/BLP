@@ -431,7 +431,7 @@ app.get('/api/me/dashboard-data', async (req, res) => {
     const today = requestedDate;
     const studentRes = matchingKelasValues.length > 0
       ? await pool.query(
-          `SELECT id, name, kelas,
+          `SELECT students.id, students.name, students.kelas,
                   daily.completed_activities,
                   EXISTS (
                     SELECT 1
